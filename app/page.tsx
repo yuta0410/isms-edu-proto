@@ -1,65 +1,87 @@
-import Image from "next/image";
+import Link from "next/link";
+import {
+  Presentation,
+  LayoutDashboard,
+  GraduationCap,
+  ArrowRight,
+  ShieldCheck,
+} from "lucide-react";
+
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+
+const LINKS = [
+  {
+    href: "/admin/generate",
+    icon: Presentation,
+    title: "スライド生成・直感編集",
+    desc: "キーワードからスライドと確認テストを自動生成し、左右スプリットビューでリアルタイム編集・公開します。",
+    role: "管理者",
+  },
+  {
+    href: "/admin/dashboard",
+    icon: LayoutDashboard,
+    title: "受講進捗ダッシュボード",
+    desc: "顧客企業ごとの社員の受講ステータス・完了日時・テスト正解率を一覧で確認します。",
+    role: "コンサル / 企業管理者",
+  },
+  {
+    href: "/pages/course",
+    icon: GraduationCap,
+    title: "教材選択＆受講",
+    desc: "社員が教材を選び、スライドを読み進め、全問正解するまで挑戦する確認テストを受験します。",
+    role: "一般社員",
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="flex flex-1 flex-col items-center bg-background px-6 py-16">
+      <div className="w-full max-w-4xl">
+        <div className="mb-12 flex flex-col items-center text-center">
+          <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <ShieldCheck className="size-6" />
+          </div>
+          <h1 className="font-heading text-3xl font-bold tracking-tight">
+            ISMS 教育資料管理ツール
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-3 max-w-xl text-muted-foreground">
+            ISO/IEC 27001 に対応した教育コンテンツを、生成 AI と RAG で作成・配信・進捗管理するためのプロトタイプ（MVP）です。
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {LINKS.map((l) => {
+            const Icon = l.icon;
+            return (
+              <Link key={l.href} href={l.href} className="group">
+                <Card className="h-full transition-shadow hover:ring-primary/30 hover:ring-2">
+                  <CardHeader>
+                    <div className="mb-2 flex size-9 items-center justify-center rounded-lg bg-muted text-foreground">
+                      <Icon className="size-5" />
+                    </div>
+                    <CardDescription className="text-xs">
+                      {l.role}
+                    </CardDescription>
+                    <CardTitle className="flex items-center gap-1">
+                      {l.title}
+                      <ArrowRight className="size-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground">
+                    {l.desc}
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
-      </main>
+      </div>
     </div>
   );
 }
