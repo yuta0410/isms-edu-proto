@@ -10,6 +10,7 @@ import {
   Send,
   GraduationCap,
   Home,
+  Layers,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/admin/dashboard", label: "ダッシュボード", icon: LayoutDashboard },
   { href: "/admin/generate", label: "スライド生成", icon: Presentation },
+  { href: "/admin/courses", label: "教材一覧", icon: Layers },
   { href: "/admin/materials", label: "参考資料管理", icon: FolderOpen },
   { href: "/admin/distribution", label: "配信・進捗管理", icon: Send },
 ];
