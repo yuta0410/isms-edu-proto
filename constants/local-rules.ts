@@ -88,6 +88,60 @@ export const SAMPLE_POLICIES = [
   { id: "e", file_name: POLICY_PROFILES.e.file_name },
 ];
 
+// ---------------------------------------------------------------------------
+// 顧客企業ごとに「登録・学習済み」の社内規定。参考資料管理画面の
+// 「社内規定（ローカルルール）」タブで一覧・管理する。
+// ---------------------------------------------------------------------------
+
+/** 規定から抽出された条文ルール（詳細確認で表示）。 */
+export interface ExtractedRule {
+  label: string;
+  value: string;
+}
+
+export interface RegisteredPolicy {
+  id: string;
+  corp: string; // EVIDENCE_COMPANIES の corp に対応
+  company: string;
+  file_name: string;
+  uploaded_at: string; // "2026/06/10"
+  rules: ExtractedRule[];
+}
+
+export const REGISTERED_POLICIES: RegisteredPolicy[] = [
+  {
+    id: "rp1",
+    corp: "smart-flow",
+    company: "株式会社スマートフロー",
+    file_name: "ISMS情報セキュリティ基本規程_v2.0.pdf",
+    uploaded_at: "2026/05/28",
+    rules: [
+      { label: "パスワード", value: "8文字以上＋多要素認証（MFA）を推奨" },
+      { label: "標的型メール", value: "不審メールは即時に情報システム部へ報告" },
+      { label: "USBメモリ", value: "会社支給品のみ許可（暗号化必須）" },
+    ],
+  },
+  {
+    id: "rp2",
+    corp: "chiyoda",
+    company: "千代田コンサルティング株式会社",
+    file_name: "情報管理規程_2026年度版.pdf",
+    uploaded_at: "2026/06/02",
+    rules: [
+      { label: "パスワード", value: "12文字以上・90日ごとの変更を必須" },
+      { label: "情報の持ち出し", value: "事前承認制（部門長の承認が必要）" },
+      { label: "クリアデスク", value: "離席時の書類・端末の施錠を徹底" },
+    ],
+  },
+];
+
+/** 新規アップロード時に擬似的に付与する抽出ルール。 */
+export const DEFAULT_EXTRACTED_RULES: ExtractedRule[] = [
+  { label: "パスワード", value: "8文字以上を必須（条文より抽出）" },
+  { label: "情報の取り扱い", value: "機密区分に応じたアクセス制御を実施" },
+  { label: "インシデント報告", value: "発見後ただちに責任者へ報告" },
+];
+
 /** 社内規定PDF解析時に表示するローディングステップ文言 */
 export const POLICY_ANALYSIS_STEPS = [
   "社内規定PDFを解析中...",
