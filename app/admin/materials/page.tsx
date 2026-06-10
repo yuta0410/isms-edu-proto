@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 import {
   FolderOpen,
   UploadCloud,
@@ -113,44 +112,20 @@ export default function MaterialsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       {/* Top bar */}
-      <header className="flex items-center justify-between gap-4 border-b px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <FolderOpen className="size-5" />
-          </div>
-          <div>
-            <h1 className="font-heading text-base font-semibold">
-              参考資料管理（AI学習用）
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              管理者向け / コンサル受領資料の登録・管理
-            </p>
-          </div>
+      <header className="flex h-16 items-center gap-3 border-b bg-card px-6">
+        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <FolderOpen className="size-5" />
         </div>
-        <nav className="flex items-center gap-2 text-sm">
-          <Link href="/admin/generate">
-            <Button variant="ghost" size="sm">
-              スライド生成へ
-            </Button>
-          </Link>
-          <Link href="/admin/distribution">
-            <Button variant="ghost" size="sm">
-              配信・進捗管理
-            </Button>
-          </Link>
-          <Link href="/admin/dashboard">
-            <Button variant="ghost" size="sm">
-              進捗ダッシュボード
-            </Button>
-          </Link>
-          <Link href="/pages/course">
-            <Button variant="ghost" size="sm">
-              受講画面へ
-            </Button>
-          </Link>
-        </nav>
+        <div>
+          <h1 className="font-heading text-base font-semibold">
+            参考資料管理（AI学習用）
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            管理者向け / コンサル受領資料の登録・管理
+          </p>
+        </div>
       </header>
 
       <div className="mx-auto max-w-5xl px-6 py-8">

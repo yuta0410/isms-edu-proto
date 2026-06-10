@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 import {
   Send,
   Building2,
@@ -79,38 +78,19 @@ export default function DistributionPage() {
   const companyCount = new Set(DISTRIBUTIONS.map((r) => r.corp)).size;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="flex items-center justify-between gap-4 border-b px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Send className="size-5" />
-          </div>
-          <div>
-            <h1 className="font-heading text-base font-semibold">
-              配信・進捗管理
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              管理者向け / 企業別・グループ別の配信状況
-            </p>
-          </div>
+    <div className="min-h-screen">
+      <header className="flex h-16 items-center gap-3 border-b bg-card px-6">
+        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Send className="size-5" />
         </div>
-        <nav className="flex items-center gap-2 text-sm">
-          <Link href="/admin/generate">
-            <Button variant="ghost" size="sm">
-              スライド生成へ
-            </Button>
-          </Link>
-          <Link href="/admin/materials">
-            <Button variant="ghost" size="sm">
-              参考資料管理
-            </Button>
-          </Link>
-          <Link href="/admin/dashboard">
-            <Button variant="ghost" size="sm">
-              進捗ダッシュボード
-            </Button>
-          </Link>
-        </nav>
+        <div>
+          <h1 className="font-heading text-base font-semibold">
+            配信・進捗管理
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            管理者向け / 企業別・グループ別の配信状況
+          </p>
+        </div>
       </header>
 
       <div className="mx-auto max-w-6xl px-6 py-8">

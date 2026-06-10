@@ -157,10 +157,10 @@ function Portal() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="flex items-center justify-between gap-4 border-b px-6 py-4">
+      <header className="flex items-center justify-between gap-4 border-b px-6 py-5">
         <div className="flex items-center gap-3">
           <div
-            className={`flex size-9 items-center justify-center rounded-lg ${accent.icon}`}
+            className={`flex size-10 items-center justify-center rounded-xl ${accent.icon}`}
           >
             <GraduationCap className="size-5" />
           </div>
@@ -190,7 +190,7 @@ function Portal() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-6 py-8">
+      <div className="mx-auto max-w-5xl px-6 py-10">
         {tenant && (
           <div className={`mb-6 rounded-xl px-4 py-3 ${accent.badge}`}>
             <p className="text-sm font-medium">
@@ -210,30 +210,45 @@ function Portal() {
         )}
 
         {courses.length === 0 ? (
-          <div className="rounded-xl border border-dashed py-16 text-center text-muted-foreground">
-            現在、貴社に配信されている教材はありません。
+          <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed bg-muted/30 py-20 text-center">
+            <div className="flex size-16 items-center justify-center rounded-2xl bg-muted text-muted-foreground/50">
+              <GraduationCap className="size-8" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <p className="font-heading text-base font-medium text-foreground/80">
+                現在受講できる教材はありません
+              </p>
+              <p className="text-sm text-muted-foreground">
+                新しい教材が配信されると、ここに表示されます。
+              </p>
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {courses.map((course) => (
-              <Card key={course.id} className="flex h-full flex-col">
-                <CardHeader>
-                  <Badge variant="muted" className="w-fit">
+              <Card
+                key={course.id}
+                className="flex h-full flex-col gap-5 py-6 transition-shadow hover:shadow-md"
+              >
+                <CardHeader className="gap-2 px-6">
+                  <Badge variant="info" className="w-fit">
                     ISMS 教育
                   </Badge>
-                  <CardTitle className="mt-1">{course.title}</CardTitle>
-                  <CardDescription className="flex items-center gap-1.5 text-xs">
-                    <Clock className="size-3.5" />
-                    想定受講時間：約 {course.estimated_minutes} 分 ・ スライド{" "}
+                  <CardTitle className="mt-1 text-xl leading-snug">
+                    {course.title}
+                  </CardTitle>
+                  <CardDescription className="flex items-center gap-1.5 text-sm">
+                    <Clock className="size-4" />
+                    約 {course.estimated_minutes} 分 ・ スライド{" "}
                     {course.slides.length} 枚
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 text-sm text-muted-foreground">
+                <CardContent className="flex-1 px-6 text-[0.95rem] leading-relaxed text-muted-foreground">
                   {course.description}
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="px-6">
                   <Link href={courseHref(course.id)} className="w-full">
-                    <Button className="w-full gap-2">
+                    <Button size="lg" className="w-full gap-2 text-base">
                       受講を開始する
                       <ArrowRight className="size-4" />
                     </Button>

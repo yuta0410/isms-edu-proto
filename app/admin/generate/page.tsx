@@ -203,7 +203,7 @@ export default function GeneratePage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Top bar */}
-      <header className="flex items-center justify-between gap-4 border-b px-6 py-4">
+      <header className="flex h-16 items-center justify-between gap-4 border-b bg-card px-6">
         <div className="flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Presentation className="size-5" />
@@ -217,28 +217,12 @@ export default function GeneratePage() {
             </p>
           </div>
         </div>
-        <nav className="flex items-center gap-2 text-sm">
-          <Link href="/admin/materials">
-            <Button variant="ghost" size="sm">
-              参考資料管理
-            </Button>
-          </Link>
-          <Link href="/admin/distribution">
-            <Button variant="ghost" size="sm">
-              配信・進捗管理
-            </Button>
-          </Link>
-          <Link href="/admin/dashboard">
-            <Button variant="ghost" size="sm">
-              進捗ダッシュボード
-            </Button>
-          </Link>
-          <Link href="/pages/course">
-            <Button variant="ghost" size="sm">
-              受講画面プレビュー
-            </Button>
-          </Link>
-        </nav>
+        <Link href="/admin/materials" className="hidden sm:block">
+          <Button variant="outline" size="sm" className="gap-1.5">
+            <FolderOpen className="size-3.5" />
+            参考資料を確認
+          </Button>
+        </Link>
       </header>
 
       {/* Hybrid input: topic selection + free-text supplement */}
@@ -374,12 +358,23 @@ export default function GeneratePage() {
               </div>
             </>
           ) : (
-            <>
-              <Sparkles className="size-8 opacity-40" />
-              <p>
-                教育テーマを選択し（必要に応じて補足を入力し）「スライド生成」を押してください。
-              </p>
-            </>
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex size-20 items-center justify-center rounded-2xl border border-dashed bg-muted/40 text-muted-foreground/50">
+                <Presentation className="size-9" />
+              </div>
+              <div className="flex flex-col items-center gap-1.5">
+                <p className="font-heading text-base font-medium text-foreground/80">
+                  ここに生成されたスライドが表示されます
+                </p>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  上で教育テーマを選び、必要に応じて補足を入力してから
+                  <span className="font-medium text-foreground/70">
+                    「スライド生成」
+                  </span>
+                  を押してください。
+                </p>
+              </div>
+            </div>
           )}
         </div>
       )}
