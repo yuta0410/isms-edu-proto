@@ -3,10 +3,18 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Printer, ChevronLeft, ShieldCheck, Stamp, Loader2 } from "lucide-react";
+import {
+  Printer,
+  ChevronLeft,
+  ShieldCheck,
+  Stamp,
+  Loader2,
+  Timer,
+  History,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { getEvidenceReport } from "@/constants/evidence";
+import { getEvidenceReport, MATERIAL_REVISIONS } from "@/constants/evidence";
 
 function formatJpDate(d: Date): string {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
@@ -38,6 +46,9 @@ function EvidenceReportView() {
 
   const docNumber = `ENV-EVID-${report.corp}-2026`;
   const certNumber = `EVID-${report.corp}-0001`;
+
+  // 学習ログのメーター正規化用（最長滞在スライドを 100% とする）。
+  const maxDwell = Math.max(...report.slide_logs.map((s) => s.seconds), 1);
 
   return (
     <div className="min-h-screen bg-muted/30 print:bg-white">
@@ -99,7 +110,7 @@ function EvidenceReportView() {
         </section>
 
         {/* Education overview */}
-        <section className="mt-6">
+        <section className="mt-6 break-inside-avoid">
           <SectionTitle>1. 教育概要</SectionTitle>
           <table className="w-full border-collapse text-[12.5px]">
             <tbody>
@@ -108,11 +119,91 @@ function EvidenceReportView() {
               <OverviewRow label="使用教材名" value={report.material} />
             </tbody>
           </table>
+
+          {/* 教材改訂履歴・バージョン管理 */}
+          <div className="mt-4">
+            <h3 className="mb-2 flex items-center gap-1.5 text-[12.5px] font-bold text-slate-800">
+              <History className="size-3.5" />
+              ■ 教材改訂履歴・バージョン管理
+            </h3>
+            <table className="w-full border-collapse text-[12px]">
+              <thead>
+                <tr className="bg-slate-100 text-left text-slate-700">
+                  <th className="w-24 border border-slate-300 px-2 py-1.5 font-medium">
+                    バージョン
+                  </th>
+                  <th className="w-28 border border-slate-300 px-2 py-1.5 font-medium">
+                    改訂日
+                  </th>
+                  <th className="border border-slate-300 px-2 py-1.5 font-medium">
+                    改訂内容
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {MATERIAL_REVISIONS.map((rev) => (
+                  <tr key={rev.version}>
+                    <td className="border border-slate-300 px-2 py-1.5 font-medium">
+                      {rev.version}
+                    </td>
+                    <td className="border border-slate-300 px-2 py-1.5 text-slate-600">
+                      {rev.date}
+                    </td>
+                    <td className="border border-slate-300 px-2 py-1.5">
+                      {rev.note}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-1.5 text-[11px] text-slate-500">
+              ※ 全受講者は最新版（
+              {MATERIAL_REVISIONS[MATERIAL_REVISIONS.length - 1].version}
+              ：自社規定ローカルルール反映済み）の教材で受講しています。
+            </p>
+          </div>
+        </section>
+
+        {/* 教育の有効性・有効受講ログ（スライド滞在時間） */}
+        <section className="mt-6 break-inside-avoid">
+          <SectionTitle>2. 教育の有効性・有効受講ログ</SectionTitle>
+          <p className="mb-2 text-[12px] text-slate-600">
+            受講者の各スライド平均滞在時間（暗号化学習ログより集計）。極端な読み飛ばしが
+            ないことを示します。
+          </p>
+          <div className="flex flex-col gap-2 rounded-lg border border-slate-300 bg-slate-50 px-4 py-3">
+            {report.slide_logs.map((s) => (
+              <div key={s.label} className="flex items-center gap-3 text-[12px]">
+                <span className="w-32 shrink-0 text-slate-700">{s.label}</span>
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-slate-700"
+                    style={{ width: `${(s.seconds / maxDwell) * 100}%` }}
+                  />
+                </div>
+                <span className="w-14 shrink-0 text-right font-medium tabular-nums text-slate-800">
+                  {s.seconds} 秒
+                </span>
+              </div>
+            ))}
+            <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2 text-[12px]">
+              <span className="text-slate-600">
+                総学習時間：
+                <span className="font-bold text-slate-900">
+                  {report.total_study}
+                </span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-600/60 px-2.5 py-0.5 font-medium text-emerald-700">
+                <Timer className="size-3.5" />
+                {report.study_verdict}
+              </span>
+            </div>
+          </div>
         </section>
 
         {/* Overall summary */}
-        <section className="mt-6">
-          <SectionTitle>2. 全体サマリー</SectionTitle>
+        <section className="mt-6 break-inside-avoid">
+          <SectionTitle>3. 全体サマリー</SectionTitle>
           <div className="flex items-stretch gap-4">
             <div className="grid flex-1 grid-cols-3 gap-3">
               <SummaryStat label="対象者数" value={`${total} 名`} />
@@ -135,8 +226,8 @@ function EvidenceReportView() {
         </section>
 
         {/* Learner detail table */}
-        <section className="mt-6">
-          <SectionTitle>3. 受講者明細</SectionTitle>
+        <section className="mt-6 break-inside-avoid">
+          <SectionTitle>4. 受講者明細</SectionTitle>
           <table className="w-full border-collapse text-[12px]">
             <thead>
               <tr className="bg-slate-100 text-left text-slate-700">

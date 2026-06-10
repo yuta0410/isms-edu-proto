@@ -13,6 +13,12 @@ export interface EvidenceLearner {
   score: number;
 }
 
+/** Average dwell time (seconds) a company's learners spent on one slide. */
+export interface SlideLog {
+  label: string;
+  seconds: number;
+}
+
 export interface EvidenceReport {
   corp: string;
   company: string;
@@ -21,6 +27,12 @@ export interface EvidenceReport {
   material: string;
   supervisor: string;
   learners: EvidenceLearner[];
+  /** 各スライドの平均滞在秒数（教育の有効性ログ） */
+  slide_logs: SlideLog[];
+  /** 総学習時間の目安（例：約12分） */
+  total_study: string;
+  /** 読み飛ばし判定の文言（例：適当な読み飛ばしなし：適合） */
+  study_verdict: string;
 }
 
 export const EVIDENCE_REPORTS: Record<string, EvidenceReport> = {
@@ -38,6 +50,13 @@ export const EVIDENCE_REPORTS: Record<string, EvidenceReport> = {
       { name: "伊藤 健", department: "開発部", completed_at: "2026-05-15 09:10", score: 100 },
       { name: "渡辺 結衣", department: "カスタマーサクセス部", completed_at: "2026-05-18 14:02", score: 90 },
     ],
+    slide_logs: [
+      { label: "スライド1（概要）", seconds: 45 },
+      { label: "スライド2（定義）", seconds: 62 },
+      { label: "スライド3（事例）", seconds: 88 },
+    ],
+    total_study: "約12分",
+    study_verdict: "適当な読み飛ばしなし：適合",
   },
   chiyoda: {
     corp: "chiyoda",
@@ -54,6 +73,13 @@ export const EVIDENCE_REPORTS: Record<string, EvidenceReport> = {
       { name: "小林 桜", department: "人事部", completed_at: "2026-05-26 13:20", score: 90 },
       { name: "加藤 大輔", department: "経理部", completed_at: "2026-05-28 10:12", score: 90 },
     ],
+    slide_logs: [
+      { label: "スライド1（概要）", seconds: 50 },
+      { label: "スライド2（定義）", seconds: 55 },
+      { label: "スライド3（事例）", seconds: 72 },
+    ],
+    total_study: "約10分",
+    study_verdict: "適合",
   },
   default: {
     corp: "default",
@@ -70,8 +96,34 @@ export const EVIDENCE_REPORTS: Record<string, EvidenceReport> = {
       { name: "中村 彩", department: "経理部", completed_at: "2026-06-02 11:40", score: 80 },
       { name: "高橋 大輔", department: "開発部", completed_at: "2026-06-03 16:20", score: 95 },
     ],
+    slide_logs: [
+      { label: "スライド1（概要）", seconds: 40 },
+      { label: "スライド2（定義）", seconds: 58 },
+      { label: "スライド3（事例）", seconds: 75 },
+    ],
+    total_study: "約11分",
+    study_verdict: "適当な読み飛ばしなし：適合",
   },
 };
+
+/**
+ * 教材の改訂履歴（バージョン管理）。審査では「いつ時点の規定で、いつ改訂された
+ * 教材を使ったか」の証明が必須のため、全社共通の改訂履歴として保持する。
+ */
+export interface MaterialRevision {
+  version: string;
+  date: string;
+  note: string;
+}
+
+export const MATERIAL_REVISIONS: MaterialRevision[] = [
+  { version: "v1.0", date: "2025/04/15", note: "初期作成：IPA基準準拠" },
+  {
+    version: "v2.0",
+    date: "2026/05/20",
+    note: "改訂：最新の自社規定ローカルルールをAIハイブリッド反映",
+  },
+];
 
 /** Companies offered in the dashboard's evidence-export selector. */
 export const EVIDENCE_COMPANIES = [

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -15,6 +15,9 @@ import {
   Printer,
   X,
   ShieldCheck,
+  Clock,
+  Lock,
+  CheckCircle2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +27,12 @@ import type { Course } from "@/lib/types";
 
 function formatJpDate(d: Date): string {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+function formatClock(totalSec: number): string {
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 type Phase = "slides" | "quiz" | "done";
@@ -39,6 +48,22 @@ export default function CoursePage({
   const [phase, setPhase] = useState<Phase>("slides");
   const [current, setCurrent] = useState(0);
   const [maxReached, setMaxReached] = useState(0); // furthest slide viewed
+
+  // --- 詳細学習ログ（擬似計測）---
+  const [sessionSec, setSessionSec] = useState(0); // 累計学習秒数（ライブ表示）
+  const [logSaved, setLogSaved] = useState(false); // 保存インジケーター表示
+  const [savingLog, setSavingLog] = useState(false);
+  const [savedSummary, setSavedSummary] = useState("");
+  const dwellRef = useRef<number[]>([]); // 各スライドの滞在秒数（擬似）
+  const slideEnterRef = useRef<number | null>(null);
+
+  // スライド受講中は裏でタイマーが回り、累計学習秒数を計測する。
+  useEffect(() => {
+    if (phase !== "slides") return;
+    slideEnterRef.current = Date.now();
+    const t = setInterval(() => setSessionSec((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [phase]);
 
   // --- not found ---
   if (!course) {
@@ -81,14 +106,56 @@ export default function CoursePage({
   const isLast = current === course.slides.length - 1;
   const reachedEnd = maxReached >= course.slides.length - 1;
 
+  // 現在スライドの滞在秒数を擬似的に積算し、タイマーをリセットする。
+  function recordDwell() {
+    if (slideEnterRef.current != null) {
+      const sec = (Date.now() - slideEnterRef.current) / 1000;
+      dwellRef.current[current] = (dwellRef.current[current] ?? 0) + sec;
+    }
+    slideEnterRef.current = Date.now();
+  }
+
   function go(next: number) {
+    recordDwell();
     const clamped = Math.max(0, Math.min(course!.slides.length - 1, next));
     setCurrent(clamped);
     setMaxReached((m) => Math.max(m, clamped));
   }
 
+  // テストに進む直前に学習ログを「暗号化保存」する演出を挟む。
+  function proceedToQuiz() {
+    recordDwell();
+    const total = Math.max(sessionSec, 1);
+    const mm = Math.floor(total / 60);
+    const ss = total % 60;
+    setSavedSummary(`総学習時間 ${mm}分${String(ss).padStart(2, "0")}秒`);
+    setSavingLog(true);
+    setLogSaved(true);
+    setTimeout(() => setPhase("quiz"), 1400);
+  }
+
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+    <div className="relative flex min-h-screen flex-col bg-slate-950 text-slate-100">
+      {/* 学習ログ保存インジケーター（テスト遷移直前に一瞬表示） */}
+      {logSaved && (
+        <div className="fixed inset-x-0 top-4 z-50 flex justify-center px-4 duration-300 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 text-sm text-emerald-200 shadow-lg backdrop-blur">
+            <span className="flex size-6 items-center justify-center rounded-full bg-emerald-500/30">
+              <Lock className="size-3.5" />
+            </span>
+            <span>
+              学習ログ（各スライドの滞在秒数・総学習時間）を暗号化ログとして保存しました
+              {savedSummary && (
+                <span className="ml-1 text-emerald-300/80">
+                  （{savedSummary}）
+                </span>
+              )}
+            </span>
+            <CheckCircle2 className="size-4 text-emerald-300" />
+          </div>
+        </div>
+      )}
+
       {/* progress bar */}
       <div className="h-1 w-full bg-slate-800">
         <div
@@ -104,9 +171,16 @@ export default function CoursePage({
           <Link href="/pages/course" className="hover:text-slate-200">
             ← 教材一覧
           </Link>
-          <span>
-            {course.title} ・ スライド {current + 1} / {course.slides.length}
-          </span>
+          <div className="flex items-center gap-3">
+            {/* 裏で回っている学習タイマー */}
+            <span className="flex items-center gap-1 rounded-full bg-slate-800/80 px-2 py-0.5 tabular-nums text-slate-300">
+              <Clock className="size-3 text-sky-400" />
+              学習計測中 {formatClock(sessionSec)}
+            </span>
+            <span>
+              {course.title} ・ スライド {current + 1} / {course.slides.length}
+            </span>
+          </div>
         </div>
 
         {/* slide */}
@@ -154,11 +228,21 @@ export default function CoursePage({
             </Button>
           ) : reachedEnd ? (
             <Button
-              onClick={() => setPhase("quiz")}
+              onClick={proceedToQuiz}
+              disabled={savingLog}
               className="gap-2 bg-emerald-600 text-white hover:bg-emerald-600/90"
             >
-              <ListChecks className="size-4" />
-              確認テストに進む
+              {savingLog ? (
+                <>
+                  <Lock className="size-4" />
+                  学習ログを保存中...
+                </>
+              ) : (
+                <>
+                  <ListChecks className="size-4" />
+                  確認テストに進む
+                </>
+              )}
             </Button>
           ) : (
             <span className="text-xs text-slate-500">
