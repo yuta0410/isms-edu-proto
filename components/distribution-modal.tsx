@@ -114,7 +114,12 @@ export function DistributionModal({
   }
 
   const primaryCorp = corps[0] ?? "A";
-  const magicLink = `http://localhost:3000/pages/course?token=magic123&corp=${primaryCorp}`;
+  // Derive the base URL from the current origin so the issued link is correct in
+  // every environment (localhost, Vercel previews, production). Falls back to an
+  // empty string during SSR; the modal content only renders client-side once
+  // opened, so the origin is always available when the link is shown.
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const magicLink = `${baseUrl}/pages/course?token=magic123&corp=${primaryCorp}`;
 
   function toggleCorp(corp: string) {
     setCorps((prev) =>
