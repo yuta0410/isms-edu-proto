@@ -16,6 +16,10 @@ import {
   FileOutput,
   FolderOpen,
   Send,
+  FileText,
+  UploadCloud,
+  ScanSearch,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +29,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { DistributionModal } from "@/components/distribution-modal";
 import { COURSES } from "@/constants/courses";
+import {
+  POLICY_PROFILES,
+  SAMPLE_POLICIES,
+  POLICY_ANALYSIS_STEPS,
+  getSlideHighlight,
+} from "@/constants/local-rules";
 import type { SlideDeck } from "@/lib/types";
 
 // Hybrid input: a curated set of common ISMS topics + a free-text option.
@@ -50,13 +60,30 @@ const TOPIC_OPTIONS = [
 
 // Rich loading sequence that mimics the RAG pipeline reading uploaded
 // materials, cross-checking IPA data, and emitting the deck.
-const LOADING_STEPS = [
+const BASE_LOADING_STEPS = [
   { icon: FolderOpen, text: "参考資料を解析中..." },
   { icon: FileSearch, text: "アップロード資料をベクトル検索中..." },
   { icon: Database, text: "IPA・JIPDECデータと照合中..." },
   { icon: FileOutput, text: "スライドとテストを出力中..." },
 ] as const;
+
+// Extra steps prepended when a 社内規定PDF is loaded, so the pipeline visibly
+// reads the company's local rules before generating.
+const POLICY_LOADING_STEPS = [
+  { icon: FileText, text: "社内規定PDFを解析中..." },
+  { icon: ScanSearch, text: "ローカルルールを抽出中..." },
+] as const;
+
+type LoadingStep = { icon: typeof FolderOpen; text: string };
+
+function buildLoadingSteps(hasPolicy: boolean): LoadingStep[] {
+  return hasPolicy
+    ? [...POLICY_LOADING_STEPS, ...BASE_LOADING_STEPS]
+    : [...BASE_LOADING_STEPS];
+}
+
 const STEP_DURATION = 1100; // ms per loading message
+const POLICY_STEP_DURATION = 850; // ms per policy-extraction message
 
 export default function GeneratePage() {
   const [topic, setTopic] = useState<string>("personal-info");
@@ -70,14 +97,51 @@ export default function GeneratePage() {
   const [added, setAdded] = useState(false);
   const [distOpen, setDistOpen] = useState(false);
 
+  // --- 社内規定PDF（ローカルルール）---
+  const [policyId, setPolicyId] = useState<string>(""); // "" = none, "d", "e"
+  const [policyAnalyzing, setPolicyAnalyzing] = useState(false);
+  const [policyAnalyzed, setPolicyAnalyzed] = useState(false);
+  const [policyStep, setPolicyStep] = useState(0);
+
+  const selectedPolicy = policyId ? POLICY_PROFILES[policyId] : null;
+
   const selectedTopic =
     TOPIC_OPTIONS.find((t) => t.value === topic) ?? TOPIC_OPTIONS[0];
   const isOther = topic === "other";
   // The keyword sent to the pipeline: preset term, or the free-text entry.
   const resolvedKeyword = isOther ? customKeyword.trim() : selectedTopic.keyword;
 
+  const loadingSteps = buildLoadingSteps(Boolean(selectedPolicy));
+
+  // Simulate parsing & extracting local rules from the selected policy PDF.
+  function handleSelectPolicy(id: string) {
+    setPolicyId(id);
+    setPolicyAnalyzed(false);
+    if (!id) {
+      setPolicyAnalyzing(false);
+      return;
+    }
+    setPolicyAnalyzing(true);
+    setPolicyStep(0);
+    const timer = setInterval(() => {
+      setPolicyStep((s) => Math.min(s + 1, POLICY_ANALYSIS_STEPS.length - 1));
+    }, POLICY_STEP_DURATION);
+    setTimeout(() => {
+      clearInterval(timer);
+      setPolicyAnalyzing(false);
+      setPolicyAnalyzed(true);
+    }, POLICY_ANALYSIS_STEPS.length * POLICY_STEP_DURATION + 250);
+  }
+
+  function clearPolicy() {
+    setPolicyId("");
+    setPolicyAnalyzing(false);
+    setPolicyAnalyzed(false);
+  }
+
   async function handleGenerate() {
     if (!resolvedKeyword) return;
+    const steps = buildLoadingSteps(Boolean(selectedPolicy));
     setLoading(true);
     setLoadingStep(0);
     setDeck(null);
@@ -85,7 +149,7 @@ export default function GeneratePage() {
 
     // Advance the loading message every STEP_DURATION ms.
     const stepTimer = setInterval(() => {
-      setLoadingStep((s) => Math.min(s + 1, LOADING_STEPS.length - 1));
+      setLoadingStep((s) => Math.min(s + 1, steps.length - 1));
     }, STEP_DURATION);
 
     try {
@@ -103,10 +167,12 @@ export default function GeneratePage() {
           if (!res.ok) throw new Error(`API error: ${res.status}`);
           return res.json() as Promise<SlideDeck>;
         }),
-        new Promise((r) => setTimeout(r, LOADING_STEPS.length * STEP_DURATION)),
+        new Promise((r) => setTimeout(r, steps.length * STEP_DURATION)),
       ]);
       setDeck(data);
       setCurrent(0);
+      // Ensure the extracted-rules card is shown after generation, too.
+      if (selectedPolicy) setPolicyAnalyzed(true);
     } catch (err) {
       console.error(err);
       alert("スライド生成に失敗しました。コンソールを確認してください。");
@@ -273,6 +339,71 @@ export default function GeneratePage() {
             )}
           </div>
 
+          {/* 社内規定PDF（ローカルルール）のアップロード／学習 */}
+          <div className="flex flex-col gap-3 rounded-xl border border-dashed border-input bg-card p-4">
+            <div className="flex items-center gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300">
+                <UploadCloud className="size-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">
+                  社内規定PDF（ローカルルール）の学習
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  アップロードした自社規定を、一般論（IPA）より優先してAIが適用します。
+                  プロトタイプではサンプル規定を選択できます。
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <label className="sr-only" htmlFor="policy-file">
+                サンプル規定ファイル
+              </label>
+              <select
+                id="policy-file"
+                value={policyId}
+                onChange={(e) => handleSelectPolicy(e.target.value)}
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-[0.8rem] text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:max-w-xs dark:bg-input/30"
+              >
+                <option value="">サンプル規定ファイルを選択...</option>
+                {SAMPLE_POLICIES.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.file_name}
+                  </option>
+                ))}
+              </select>
+
+              {selectedPolicy && (
+                <div className="flex min-w-0 items-center gap-2 text-sm">
+                  <FileText className="size-4 shrink-0 text-rose-500" />
+                  <span className="truncate text-muted-foreground">
+                    {selectedPolicy.file_name}
+                  </span>
+                  {policyAnalyzing ? (
+                    <span className="flex shrink-0 items-center gap-1.5 text-xs text-amber-600">
+                      <Loader2 className="size-3.5 animate-spin" />
+                      {POLICY_ANALYSIS_STEPS[policyStep]}
+                    </span>
+                  ) : policyAnalyzed ? (
+                    <Badge variant="success">
+                      <CheckCircle2 className="size-3" />
+                      抽出完了
+                    </Badge>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={clearPolicy}
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    aria-label="社内規定を解除"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Free-text supplement */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -308,6 +439,39 @@ export default function GeneratePage() {
         </div>
       </div>
 
+      {/* AIが抽出した独自ルール（優先適用）— 解析完了後にフワッと表示 */}
+      {selectedPolicy && policyAnalyzed && !policyAnalyzing && (
+        <div className="border-b bg-amber-50/50 px-6 py-4 duration-300 animate-in fade-in slide-in-from-top-2 dark:bg-amber-950/20">
+          <div className="rounded-xl border border-amber-300/70 bg-card p-4 dark:border-amber-800/50">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-1.5 font-heading text-sm font-semibold">
+                🔍 AIが抽出した独自ルール（優先適用）
+              </span>
+              <Badge variant="warning">
+                {selectedPolicy.company} / {selectedPolicy.file_name}
+              </Badge>
+              <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                💡 一般論（IPA）に優先して適用
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {selectedPolicy.rules.map((r) => (
+                <div
+                  key={r.label}
+                  className="flex items-start gap-2 rounded-lg border border-amber-200/70 bg-amber-50/60 px-3 py-2 text-sm dark:border-amber-900/40 dark:bg-amber-950/20"
+                >
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>
+                    <span className="font-medium">{r.label}：</span>
+                    <span className="text-muted-foreground">{r.value}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Empty / loading state */}
       {!deck && (
         <div className="flex h-[60vh] flex-col items-center justify-center gap-6 text-center text-muted-foreground">
@@ -316,17 +480,17 @@ export default function GeneratePage() {
               <div className="relative flex size-16 items-center justify-center">
                 <Loader2 className="absolute size-16 animate-spin text-primary/30" />
                 {(() => {
-                  const StepIcon = LOADING_STEPS[loadingStep].icon;
+                  const StepIcon = loadingSteps[loadingStep].icon;
                   return <StepIcon className="size-7 text-primary" />;
                 })()}
               </div>
               <div className="flex flex-col items-center gap-3">
                 <p className="font-heading text-base font-medium text-foreground">
-                  {LOADING_STEPS[loadingStep].text}
+                  {loadingSteps[loadingStep].text}
                 </p>
                 {/* Step checklist */}
                 <ul className="flex flex-col gap-1.5 text-left text-sm">
-                  {LOADING_STEPS.map((step, i) => {
+                  {loadingSteps.map((step, i) => {
                     const done = i < loadingStep;
                     const active = i === loadingStep;
                     return (
@@ -402,7 +566,7 @@ export default function GeneratePage() {
                 <h2 className="mb-5 font-heading text-2xl font-bold leading-tight">
                   {slide.title || "（タイトル未入力）"}
                 </h2>
-                <ul className="flex flex-1 flex-col gap-3">
+                <ul className="flex flex-col gap-3">
                   {slide.bullets.map((b, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-[0.95rem]">
                       <span className="mt-2 size-1.5 shrink-0 rounded-full bg-sky-400" />
@@ -410,6 +574,31 @@ export default function GeneratePage() {
                     </li>
                   ))}
                 </ul>
+
+                {/* 一般論(IPA) × 自社規定 のハイブリッド適用ハイライト */}
+                {(() => {
+                  const slideText = `${slide.title} ${slide.bullets.join(
+                    " "
+                  )} ${slide.narration}`;
+                  const hl = getSlideHighlight(slideText, selectedPolicy);
+                  if (!hl) return null;
+                  return hl.applied ? (
+                    <div className="mt-4 rounded-lg border border-amber-400/50 bg-amber-400/10 p-3">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                        💡 自社規定を適用済み
+                      </span>
+                      <p className="mt-1.5 text-sm font-semibold leading-snug text-amber-100">
+                        {hl.text}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+                      <p className="text-sm leading-snug text-slate-300">
+                        {hl.text}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
