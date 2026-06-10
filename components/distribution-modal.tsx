@@ -114,9 +114,11 @@ export function DistributionModal({
   }
 
   const primaryCorp = corps[0] ?? "A";
-  // Hardcoded to the Vercel production URL so issued links always point at the
-  // deployed environment.
-  const baseUrl = "https://isms-edu-proto.vercel.app";
+  // Derive the base URL from the current origin so the issued link matches the
+  // running environment (localhost in dev, the Vercel URL in production). Falls
+  // back to an empty string during SSR; the link is only shown after the modal
+  // is opened client-side, so the origin is always available at that point.
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   const magicLink = `${baseUrl}/pages/course?token=magic123&corp=${primaryCorp}`;
 
   function toggleCorp(corp: string) {
