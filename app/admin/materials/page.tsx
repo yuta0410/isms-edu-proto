@@ -135,6 +135,11 @@ export default function MaterialsPage() {
               スライド生成へ
             </Button>
           </Link>
+          <Link href="/admin/distribution">
+            <Button variant="ghost" size="sm">
+              配信・進捗管理
+            </Button>
+          </Link>
           <Link href="/admin/dashboard">
             <Button variant="ghost" size="sm">
               進捗ダッシュボード

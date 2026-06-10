@@ -52,6 +52,43 @@ export interface Material {
   status: MaterialStatus;
 }
 
+/** A delivery target audience inside a tenant company. */
+export type DeliveryGroup = "全社員" | "新入社員" | "管理職";
+
+/** Notification channels a distribution can fan out to. */
+export type NotifyChannel = "line" | "slack";
+
+/**
+ * A tenant (customer company). The learner portal is themed and filtered per
+ * tenant via the `corp` URL parameter, so each company sees only the courses
+ * distributed to it. In production this maps to a Supabase `tenants` table.
+ */
+export interface Tenant {
+  corp: string; // short code used in URLs, e.g. "A"
+  name: string; // 表示名, e.g. "A株式会社"
+  portal_label: string; // ヘッダー見出し
+  logo_label: string; // ロゴエリアの文言
+  accent: "sky" | "violet" | "emerald"; // テナント別アクセントカラー
+  course_ids: string[]; // 配信中の教材ID
+}
+
+/**
+ * One row of the distribution dashboard: a course delivered to a company's
+ * group, with current completion progress.
+ */
+export interface DistributionRecord {
+  id: string;
+  course_id: string;
+  course_title: string;
+  corp: string;
+  corp_name: string;
+  group: DeliveryGroup;
+  distributed_at: string;
+  total_count: number;
+  completed_count: number;
+  channels: NotifyChannel[];
+}
+
 export type CourseStatus = "not_started" | "in_progress" | "completed";
 
 export interface ProgressRecord {

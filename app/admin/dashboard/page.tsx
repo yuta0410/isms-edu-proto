@@ -126,6 +126,11 @@ export default function DashboardPage() {
               参考資料管理
             </Button>
           </Link>
+          <Link href="/admin/distribution">
+            <Button variant="ghost" size="sm">
+              配信・進捗管理
+            </Button>
+          </Link>
           <Link href="/pages/course">
             <Button variant="ghost" size="sm">
               受講画面へ

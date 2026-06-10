@@ -15,6 +15,7 @@ import {
   Database,
   FileOutput,
   FolderOpen,
+  Send,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { DistributionModal } from "@/components/distribution-modal";
 import { COURSES } from "@/constants/courses";
 import type { SlideDeck } from "@/lib/types";
 
@@ -66,6 +68,7 @@ export default function GeneratePage() {
   const [current, setCurrent] = useState(0);
   const [publishing, setPublishing] = useState(false);
   const [added, setAdded] = useState(false);
+  const [distOpen, setDistOpen] = useState(false);
 
   const selectedTopic =
     TOPIC_OPTIONS.find((t) => t.value === topic) ?? TOPIC_OPTIONS[0];
@@ -186,10 +189,9 @@ export default function GeneratePage() {
       // });
       await new Promise((r) => setTimeout(r, 700));
       setAdded(true);
-      alert(
-        `✅ 教材「${deck.keyword}」を教材リストに追加しました。\n` +
-          `現在の公開教材数：${COURSES.length + 1} 件（受講画面に表示されます）`
-      );
+      // After publishing, immediately open the distribution settings modal so
+      // the consultant can deliver the new course to client companies.
+      setDistOpen(true);
     } finally {
       setPublishing(false);
     }
@@ -219,6 +221,11 @@ export default function GeneratePage() {
           <Link href="/admin/materials">
             <Button variant="ghost" size="sm">
               参考資料管理
+            </Button>
+          </Link>
+          <Link href="/admin/distribution">
+            <Button variant="ghost" size="sm">
+              配信・進捗管理
             </Button>
           </Link>
           <Link href="/admin/dashboard">
@@ -599,11 +606,17 @@ export default function GeneratePage() {
                 )}
               </div>
               {added ? (
-                <Link href="/pages/course">
-                  <Button variant="outline" className="gap-2">
-                    受講画面で確認する
+                <div className="flex items-center gap-2">
+                  <Link href="/pages/course">
+                    <Button variant="outline" className="gap-2">
+                      受講画面で確認する
+                    </Button>
+                  </Link>
+                  <Button onClick={() => setDistOpen(true)} className="gap-2">
+                    <Send className="size-4" />
+                    配信設定
                   </Button>
-                </Link>
+                </div>
               ) : (
                 <Button
                   onClick={handlePublish}
@@ -622,6 +635,13 @@ export default function GeneratePage() {
           </section>
         </div>
       )}
+
+      {/* Distribution settings modal (opens automatically after publishing) */}
+      <DistributionModal
+        open={distOpen}
+        onOpenChange={setDistOpen}
+        courseTitle={deck?.keyword ?? ""}
+      />
     </div>
   );
 }

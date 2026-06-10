@@ -6,6 +6,7 @@ import {
   ArrowRight,
   ShieldCheck,
   FolderOpen,
+  Send,
 } from "lucide-react";
 
 import {
@@ -29,6 +30,13 @@ const LINKS = [
     icon: FolderOpen,
     title: "参考資料管理（AI学習用）",
     desc: "PマークやJIPDECなどの受領資料をAI学習用に登録・管理します。スライド生成時の参照元（RAG）になります。",
+    role: "管理者 / コンサル",
+  },
+  {
+    href: "/admin/distribution",
+    icon: Send,
+    title: "配信・進捗管理",
+    desc: "教材を企業・グループ別に配信し、マジックリンクを発行。企業ごとの受講完了率の確認とリマインド送信を行います。",
     role: "管理者 / コンサル",
   },
   {
@@ -63,7 +71,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {LINKS.map((l) => {
             const Icon = l.icon;
             return (
