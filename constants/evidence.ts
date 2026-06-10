@@ -85,3 +85,103 @@ export function getEvidenceReport(corp: string | null | undefined): EvidenceRepo
   if (corp && EVIDENCE_REPORTS[corp]) return EVIDENCE_REPORTS[corp];
   return EVIDENCE_REPORTS.default;
 }
+
+// ---------------------------------------------------------------------------
+// Weakness analysis (category-level quiz incorrect rates) used by the
+// dashboard's アップセル提案 section. Keyed by the same `corp` identifier.
+// ---------------------------------------------------------------------------
+
+export interface WeaknessCategory {
+  category: string;
+  /** Quiz incorrect rate, 0-100. Higher = weaker / riskier. */
+  incorrect_rate: number;
+}
+
+export interface CompanyWeakness {
+  corp: string;
+  categories: WeaknessCategory[];
+  /** One-click upsell email the consultant can send as-is. */
+  upsell: {
+    weakest: string;
+    option: string;
+    email: string;
+  };
+}
+
+export const COMPANY_WEAKNESS: Record<string, CompanyWeakness> = {
+  "smart-flow": {
+    corp: "smart-flow",
+    categories: [
+      { category: "標的型メール・フィッシング", incorrect_rate: 78 },
+      { category: "パスワード管理", incorrect_rate: 12 },
+      { category: "PC・端末の紛失対策", incorrect_rate: 25 },
+    ],
+    upsell: {
+      weakest: "標的型メール・フィッシング",
+      option: "標的型メール抜き打ち訓練（追加オプション）",
+      email: `株式会社スマートフロー ご担当者様
+
+いつも大変お世話になっております。E&Nコンサルティングです。
+
+先般実施いたしました情報セキュリティ教育の理解度テストを分析した結果、貴社は「標的型メール・フィッシング攻撃」への耐性が極めて低い状態であることが判明いたしました（当該カテゴリの不正解率：78%）。
+
+つきましては来月、実戦形式の『標的型メール抜き打ち訓練（追加オプション）』の実施をご提案いたします。実際の業務を装った訓練メールを配信し、開封・クリック率の可視化と、その場での是正指導までを一気通貫で行うことで、従業員の「気づく力」を実地で養成いたします。
+
+ご多忙のところ恐れ入りますが、ご検討のほど何卒よろしくお願い申し上げます。
+
+E&Nコンサルティング株式会社`,
+    },
+  },
+  chiyoda: {
+    corp: "chiyoda",
+    categories: [
+      { category: "標的型メール・フィッシング", incorrect_rate: 15 },
+      { category: "パスワード管理", incorrect_rate: 82 },
+      { category: "PC・端末の紛失対策", incorrect_rate: 40 },
+    ],
+    upsell: {
+      weakest: "パスワード管理",
+      option: "パスワードマネージャー導入支援ワークショップ（追加オプション）",
+      email: `千代田コンサルティング株式会社 ご担当者様
+
+いつも大変お世話になっております。E&Nコンサルティングです。
+
+先般実施いたしました情報セキュリティ教育の理解度テストを分析した結果、貴社は「パスワード管理」に関するリスクが高く、特にパスワードの使い回しが懸念される状態であることが判明いたしました（当該カテゴリの不正解率：82%）。
+
+つきましては来月、全社的な『パスワードマネージャー導入支援ワークショップ（追加オプション）』の実施をご提案いたします。ツールの選定から初期設定、全社展開の運用ルール策定までをハンズオン形式でご支援し、属人的なパスワード管理から脱却する仕組みを構築いたします。
+
+ご多忙のところ恐れ入りますが、ご検討のほど何卒よろしくお願い申し上げます。
+
+E&Nコンサルティング株式会社`,
+    },
+  },
+  default: {
+    corp: "default",
+    categories: [
+      { category: "標的型メール・フィッシング", incorrect_rate: 35 },
+      { category: "パスワード管理", incorrect_rate: 28 },
+      { category: "PC・端末の紛失対策", incorrect_rate: 22 },
+    ],
+    upsell: {
+      weakest: "標的型メール・フィッシング",
+      option: "セキュリティ意識向上 継続教育プログラム（追加オプション）",
+      email: `A株式会社 ご担当者様
+
+いつも大変お世話になっております。E&Nコンサルティングです。
+
+先般実施いたしました情報セキュリティ教育の理解度テストを分析した結果、全体として大きな弱点は見られないものの、「標的型メール・フィッシング」のカテゴリで一定の改善余地が確認されました（当該カテゴリの不正解率：35%）。
+
+つきましては、定着度をさらに高めるための『セキュリティ意識向上 継続教育プログラム（追加オプション）』をご提案いたします。四半期ごとの小テストとフォローアップ教育により、教育効果の維持・向上を図ります。
+
+ご多忙のところ恐れ入りますが、ご検討のほど何卒よろしくお願い申し上げます。
+
+E&Nコンサルティング株式会社`,
+    },
+  },
+};
+
+/** Resolve weakness data by corp; falls back to the default dataset. */
+export function getWeakness(corp: string | null | undefined): CompanyWeakness {
+  if (corp && COMPANY_WEAKNESS[corp]) return COMPANY_WEAKNESS[corp];
+  return COMPANY_WEAKNESS.default;
+}

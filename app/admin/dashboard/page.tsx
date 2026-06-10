@@ -10,6 +10,13 @@ import {
   BookOpen,
   Sparkles,
   FileCheck2,
+  ShieldAlert,
+  AlertTriangle,
+  Lightbulb,
+  Mail,
+  Copy,
+  Check,
+  X,
 } from "lucide-react";
 
 import {
@@ -31,8 +38,21 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { COURSES } from "@/constants/courses";
-import { EVIDENCE_COMPANIES } from "@/constants/evidence";
+import { EVIDENCE_COMPANIES, getWeakness } from "@/constants/evidence";
 import type { CourseStatus } from "@/lib/types";
+
+// Severity styling for a category's quiz incorrect rate.
+function severityOf(rate: number) {
+  if (rate >= 50)
+    return {
+      variant: "destructive" as const,
+      label: "危険",
+      bar: "bg-destructive",
+    };
+  if (rate >= 25)
+    return { variant: "warning" as const, label: "注意", bar: "bg-amber-500" };
+  return { variant: "success" as const, label: "安全", bar: "bg-emerald-500" };
+}
 
 // Enrollment record tied to a course in the catalog.
 interface Enrollment {
@@ -93,10 +113,40 @@ function summarize(rows: Enrollment[]) {
 
 export default function DashboardPage() {
   const [filter, setFilter] = useState<string>("all");
-  // 証跡PDF出力の対象企業（証跡画面へ corp として引き渡す）
+  // 証跡PDF出力の対象企業（証跡画面へ corp として引き渡す）。
+  // 弱点分析・アップセル提案セクションもこの選択に連動する。
   const [evidenceCorp, setEvidenceCorp] = useState<string>(
     EVIDENCE_COMPANIES[0].corp
   );
+  const [showUpsell, setShowUpsell] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // 企業を切り替えたら、表示中の提案メールパネルを閉じる
+  // （adjust-state-during-render パターンで effect の連鎖再レンダーを回避）。
+  const [prevCorp, setPrevCorp] = useState(evidenceCorp);
+  if (evidenceCorp !== prevCorp) {
+    setPrevCorp(evidenceCorp);
+    setShowUpsell(false);
+    setCopied(false);
+  }
+
+  const weakness = getWeakness(evidenceCorp);
+  const weakestRate = Math.max(
+    ...weakness.categories.map((c) => c.incorrect_rate)
+  );
+  const companyName =
+    EVIDENCE_COMPANIES.find((c) => c.corp === evidenceCorp)?.name ??
+    "対象企業";
+
+  async function copyUpsellEmail() {
+    try {
+      await navigator.clipboard.writeText(weakness.upsell.email);
+    } catch {
+      /* clipboard may be unavailable in some contexts; ignore in prototype */
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  }
 
   const filtered = useMemo(
     () =>
@@ -198,6 +248,144 @@ export default function DashboardPage() {
             );
           })}
         </div>
+
+        {/* セキュリティ弱点・リスク分析（企業選択に連動） */}
+        <Card className="mb-8">
+          <CardHeader>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldAlert className="size-4 text-destructive" />
+                  セキュリティ弱点・リスク分析
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  <span className="font-medium text-foreground">
+                    {companyName}
+                  </span>
+                  ｜カテゴリ別のクイズ不正解率から弱点を可視化します。
+                </CardDescription>
+              </div>
+              <Badge
+                variant={weakestRate >= 50 ? "destructive" : "warning"}
+                className="w-fit"
+              >
+                <AlertTriangle className="size-3" />
+                最弱点：{weakness.upsell.weakest}（{weakestRate}%）
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {/* カテゴリ別メーター */}
+            <div className="flex flex-col gap-3.5">
+              {weakness.categories.map((c) => {
+                const sev = severityOf(c.incorrect_rate);
+                const isWeakest = c.incorrect_rate === weakestRate;
+                return (
+                  <div key={c.category} className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="flex items-center gap-2 font-medium">
+                        {c.category}
+                        <Badge variant={sev.variant}>
+                          {sev.variant === "destructive" && (
+                            <AlertTriangle className="size-3" />
+                          )}
+                          {isWeakest && c.incorrect_rate >= 50
+                            ? "最弱点：要対策"
+                            : sev.label}
+                        </Badge>
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`text-sm font-semibold tabular-nums ${
+                            c.incorrect_rate >= 50
+                              ? "text-destructive"
+                              : c.incorrect_rate >= 25
+                                ? "text-amber-600"
+                                : "text-emerald-600"
+                          }`}
+                        >
+                          不正解率 {c.incorrect_rate}%
+                        </span>
+                        {isWeakest && (
+                          <Button
+                            size="sm"
+                            onClick={() => setShowUpsell(true)}
+                            className="gap-1.5"
+                          >
+                            <Lightbulb className="size-3.5" />
+                            追加対策を提案
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    {/* メーター */}
+                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full rounded-full transition-all ${sev.bar}`}
+                        style={{ width: `${c.incorrect_rate}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* アップセル提案メール（フワッと表示） */}
+            {showUpsell && (
+              <div className="flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 duration-300 animate-in fade-in slide-in-from-bottom-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Mail className="size-4" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium">
+                        追加提案メール テンプレート
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {weakness.upsell.option}｜そのまま顧客へ送付できます
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setShowUpsell(false)}
+                    aria-label="閉じる"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+                <div className="max-h-64 overflow-y-auto rounded-lg border bg-card p-3 text-[13px] leading-relaxed whitespace-pre-wrap text-foreground">
+                  {weakness.upsell.email}
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <span className="mr-auto text-xs text-muted-foreground">
+                    ※ プロトタイプ：本文はコピーして任意のメールソフトに貼り付けできます。
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={copyUpsellEmail}
+                    className="gap-1.5"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="size-3.5 text-emerald-600" />
+                        コピーしました
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="size-3.5" />
+                        メール本文をコピー
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Table with course filter */}
         <Card>
