@@ -31,6 +31,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { COURSES } from "@/constants/courses";
+import { EVIDENCE_COMPANIES } from "@/constants/evidence";
 import type { CourseStatus } from "@/lib/types";
 
 // Enrollment record tied to a course in the catalog.
@@ -92,6 +93,10 @@ function summarize(rows: Enrollment[]) {
 
 export default function DashboardPage() {
   const [filter, setFilter] = useState<string>("all");
+  // 証跡PDF出力の対象企業（証跡画面へ corp として引き渡す）
+  const [evidenceCorp, setEvidenceCorp] = useState<string>(
+    EVIDENCE_COMPANIES[0].corp
+  );
 
   const filtered = useMemo(
     () =>
@@ -124,7 +129,23 @@ export default function DashboardPage() {
               新しい教材を生成
             </Button>
           </Link>
-          <Link href="/admin/evidence" target="_blank">
+          {/* 証跡出力の対象企業を選択し、その corp を証跡画面へ引き渡す */}
+          <label className="sr-only" htmlFor="evidence-corp">
+            証跡出力の対象企業
+          </label>
+          <select
+            id="evidence-corp"
+            value={evidenceCorp}
+            onChange={(e) => setEvidenceCorp(e.target.value)}
+            className="hidden h-8 rounded-lg border border-input bg-transparent px-2.5 text-[0.8rem] text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:block dark:bg-input/30"
+          >
+            {EVIDENCE_COMPANIES.map((c) => (
+              <option key={c.corp} value={c.corp}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <Link href={`/admin/evidence?corp=${evidenceCorp}`} target="_blank">
             <Button size="sm" className="gap-1.5">
               <FileCheck2 className="size-3.5" />
               審査用 証跡PDF出力

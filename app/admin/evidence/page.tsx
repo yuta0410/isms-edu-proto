@@ -1,47 +1,43 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
-import { Printer, ChevronLeft, ShieldCheck, Stamp } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Printer, ChevronLeft, ShieldCheck, Stamp, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-
-// ---------------------------------------------------------------------------
-// Sample evidence data. In production these rows come from Supabase
-// (enrollments joined with employees), scoped to the selected company/course.
-// ---------------------------------------------------------------------------
-const REPORT = {
-  company: "A株式会社",
-  theme: "個人情報の適切な取り扱い",
-  period: "2026年5月25日 〜 2026年6月5日",
-  material: "「個人情報の適切な取り扱い」スライド教材（E&Nコンサルティング監修）",
-  supervisor: "E&Nコンサルティング株式会社",
-};
-
-interface Learner {
-  name: string;
-  department: string;
-  completed_at: string;
-  score: number;
-}
-
-const LEARNERS: Learner[] = [
-  { name: "佐藤 健一", department: "情報システム部", completed_at: "2026-05-28 14:32", score: 100 },
-  { name: "鈴木 美咲", department: "営業部", completed_at: "2026-05-29 10:15", score: 90 },
-  { name: "田中 由美", department: "総務部", completed_at: "2026-06-01 09:15", score: 100 },
-  { name: "中村 彩", department: "経理部", completed_at: "2026-06-02 11:40", score: 80 },
-  { name: "高橋 大輔", department: "開発部", completed_at: "2026-06-03 16:20", score: 95 },
-];
+import { getEvidenceReport } from "@/constants/evidence";
 
 function formatJpDate(d: Date): string {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
 export default function EvidencePage() {
-  const total = LEARNERS.length;
-  const completed = LEARNERS.length; // all listed learners are completed
-  const avgScore = Math.round(
-    LEARNERS.reduce((a, l) => a + l.score, 0) / LEARNERS.length
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+          <Loader2 className="size-6 animate-spin" />
+        </div>
+      }
+    >
+      <EvidenceReportView />
+    </Suspense>
   );
+}
+
+function EvidenceReportView() {
+  const corp = useSearchParams().get("corp");
+  const report = getEvidenceReport(corp);
+
+  const total = report.learners.length;
+  const completed = report.learners.length; // all listed learners are completed
+  const avgScore = total
+    ? Math.round(report.learners.reduce((a, l) => a + l.score, 0) / total)
+    : 0;
+
+  const docNumber = `ENV-EVID-${report.corp}-2026`;
+  const certNumber = `EVID-${report.corp}-0001`;
 
   return (
     <div className="min-h-screen bg-muted/30 print:bg-white">
@@ -55,7 +51,7 @@ export default function EvidencePage() {
         </Link>
         <div className="flex items-center gap-3">
           <span className="hidden text-xs text-muted-foreground sm:inline">
-            A4縦・1ページに最適化されています
+            対象企業：{report.company} ・ A4縦1ページに最適化
           </span>
           <Button onClick={() => window.print()} className="gap-2">
             <Printer className="size-4" />
@@ -76,7 +72,7 @@ export default function EvidencePage() {
               </span>
             </div>
             <div className="text-right text-xs text-slate-600">
-              文書番号：EDU-CERT-2026-001
+              文書番号：{docNumber}
               <br />
               <span suppressHydrationWarning>
                 報告日：{formatJpDate(new Date())}
@@ -93,13 +89,13 @@ export default function EvidencePage() {
 
         {/* Official meta block */}
         <section className="mt-5 grid grid-cols-2 gap-x-6 gap-y-2 text-[12.5px]">
-          <MetaRow label="対象企業" value={REPORT.company} />
-          <MetaRow label="実施責任者" value={`${REPORT.supervisor} 監修`} />
+          <MetaRow label="対象企業" value={report.company} />
+          <MetaRow label="実施責任者" value={`${report.supervisor} 監修`} />
           <MetaRow
             label="対象規格"
             value="ISO/IEC 27001:2022 / JIS Q 15001:2017 準拠"
           />
-          <MetaRow label="実施期間" value={REPORT.period} />
+          <MetaRow label="実施期間" value={report.period} />
         </section>
 
         {/* Education overview */}
@@ -107,9 +103,9 @@ export default function EvidencePage() {
           <SectionTitle>1. 教育概要</SectionTitle>
           <table className="w-full border-collapse text-[12.5px]">
             <tbody>
-              <OverviewRow label="教育テーマ" value={REPORT.theme} />
-              <OverviewRow label="実施期間" value={REPORT.period} />
-              <OverviewRow label="使用教材名" value={REPORT.material} />
+              <OverviewRow label="教育テーマ" value={report.theme} />
+              <OverviewRow label="実施期間" value={report.period} />
+              <OverviewRow label="使用教材名" value={report.material} />
             </tbody>
           </table>
         </section>
@@ -165,7 +161,7 @@ export default function EvidencePage() {
               </tr>
             </thead>
             <tbody>
-              {LEARNERS.map((l, i) => (
+              {report.learners.map((l, i) => (
                 <tr key={l.name}>
                   <td className="border border-slate-300 px-2 py-1.5 text-slate-500">
                     {i + 1}
@@ -197,9 +193,12 @@ export default function EvidencePage() {
 
         {/* Signature footer */}
         <section className="mt-10 flex items-end justify-between gap-6">
-          <p className="text-[11px] text-slate-500">
-            上記のとおり、情報セキュリティ教育を実施し、対象者全員の受講完了を確認したことを証明します。
-          </p>
+          <div className="text-[11px] text-slate-500">
+            <p>
+              上記のとおり、情報セキュリティ教育を実施し、対象者全員の受講完了を確認したことを証明します。
+            </p>
+            <p className="mt-1">証明番号：{certNumber}</p>
+          </div>
           <div className="flex shrink-0 gap-4">
             <SignatureBox label="実施責任者印" />
             <SignatureBox label="企業管理者印" />
