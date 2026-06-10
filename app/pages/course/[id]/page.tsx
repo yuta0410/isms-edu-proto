@@ -2,6 +2,7 @@
 
 import { use, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,11 +11,20 @@ import {
   PartyPopper,
   Send,
   AlertTriangle,
+  Award,
+  Printer,
+  X,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getCourse } from "@/constants/courses";
+import { getTenant } from "@/constants/distribution";
 import type { Course } from "@/lib/types";
+
+function formatJpDate(d: Date): string {
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
 
 type Phase = "slides" | "quiz" | "done";
 
@@ -316,32 +326,167 @@ function QuizView({
 // Completion screen
 // ---------------------------------------------------------------------------
 function CompletionView({ course }: { course: Course }) {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-emerald-950 to-slate-950 px-6 text-center text-slate-100">
-      <div className="flex size-24 items-center justify-center rounded-full bg-emerald-500/20 ring-4 ring-emerald-500/30">
-        <PartyPopper className="size-12 text-emerald-400" />
-      </div>
-      <h1 className="mt-8 font-heading text-4xl font-bold">受講完了！</h1>
-      <p className="mt-3 max-w-md text-lg text-slate-300">
-        「{course.title}」の教育コースを全問正解で修了しました。
-        お疲れさまでした。
-      </p>
-      <p className="mt-2 text-sm text-emerald-400">テスト正解率：100%</p>
+  const params = useSearchParams();
+  const tenant = getTenant(params.get("corp"));
+  const [showCert, setShowCert] = useState(false);
 
-      <div className="mt-10 flex gap-3">
-        <Link href="/pages/course">
+  return (
+    <>
+      <div
+        className={`flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-emerald-950 to-slate-950 px-6 text-center text-slate-100 ${
+          showCert ? "print:hidden" : ""
+        }`}
+      >
+        <div className="flex size-24 items-center justify-center rounded-full bg-emerald-500/20 ring-4 ring-emerald-500/30">
+          <PartyPopper className="size-12 text-emerald-400" />
+        </div>
+        <h1 className="mt-8 font-heading text-4xl font-bold">受講完了！</h1>
+        <p className="mt-3 max-w-md text-lg text-slate-300">
+          「{course.title}」の教育コースを全問正解で修了しました。
+          お疲れさまでした。
+        </p>
+        <p className="mt-2 text-sm text-emerald-400">テスト正解率：100%</p>
+
+        <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
           <Button
-            variant="outline"
-            className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800"
+            onClick={() => setShowCert(true)}
+            className="gap-2 bg-amber-400 text-amber-950 hover:bg-amber-300"
           >
-            他の教材を受講する
+            <Award className="size-4" />
+            受講修了証を表示
           </Button>
-        </Link>
-        <Link href="/">
-          <Button className="bg-emerald-600 text-white hover:bg-emerald-600/90">
-            ホームへ戻る
-          </Button>
-        </Link>
+          <Link href="/pages/course">
+            <Button
+              variant="outline"
+              className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800"
+            >
+              他の教材を受講する
+            </Button>
+          </Link>
+          <Link href="/">
+            <Button
+              variant="ghost"
+              className="text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+            >
+              ホームへ戻る
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {showCert && (
+        <CertificateModal
+          course={course}
+          companyName={tenant?.name}
+          onClose={() => setShowCert(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Personal completion certificate (表彰状風). Rendered as a full-screen overlay
+// so that, on print, the background completion view is hidden (print:hidden)
+// and only this certificate sheet remains.
+// ---------------------------------------------------------------------------
+function CertificateModal({
+  course,
+  companyName,
+  onClose,
+}: {
+  course: Course;
+  companyName?: string;
+  onClose: () => void;
+}) {
+  // Sample recipient — in production this is the authenticated learner.
+  const recipient = "山田 太郎";
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 print:static print:overflow-visible print:bg-white">
+      {/* Toolbar — never printed */}
+      <div className="flex items-center justify-end gap-2 p-4 print:hidden">
+        <Button
+          onClick={() => window.print()}
+          className="gap-2 bg-amber-400 text-amber-950 hover:bg-amber-300"
+        >
+          <Printer className="size-4" />
+          PDF保存 / 印刷
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={onClose}
+          className="gap-1.5 text-slate-200 hover:bg-white/10 hover:text-white"
+        >
+          <X className="size-4" />
+          閉じる
+        </Button>
+      </div>
+
+      {/* Certificate sheet */}
+      <div className="flex justify-center px-4 pb-12 print:p-0">
+        <div className="relative w-full max-w-2xl bg-white p-3 shadow-2xl print:max-w-none print:shadow-none">
+          <div className="rounded-sm border-[6px] border-double border-amber-600/70 px-8 py-10 text-center text-slate-800 sm:px-12 sm:py-14">
+            {/* Header */}
+            <div className="flex items-center justify-center gap-2 text-amber-700">
+              <ShieldCheck className="size-5" />
+              <span className="text-xs font-medium tracking-[0.2em] uppercase">
+                Certificate of Completion
+              </span>
+            </div>
+            <h1 className="mt-4 font-heading text-4xl font-bold tracking-[0.15em] text-slate-900">
+              受講修了証
+            </h1>
+            <div className="mx-auto mt-3 h-0.5 w-20 bg-amber-600/70" />
+
+            {/* Recipient */}
+            <p className="mt-8 text-sm text-slate-500">
+              {companyName ?? ""}
+            </p>
+            <p className="mt-1 font-heading text-2xl font-bold text-slate-900">
+              {recipient}　殿
+            </p>
+
+            {/* Statement */}
+            <p className="mx-auto mt-6 max-w-md text-sm leading-loose text-slate-700">
+              あなたは、当社の情報セキュリティ教育課程
+              <br />
+              「<span className="font-medium text-slate-900">{course.title}</span>」
+              を受講し、
+              <br />
+              所定の理解度テストに全問合格して、これを修了されました。
+              <br />
+              ここにその努力を称え、本証を授与します。
+            </p>
+
+            {/* Score */}
+            <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-700">
+              <Award className="size-4" />
+              理解度テスト正解率：100%
+            </div>
+
+            {/* Footer */}
+            <div className="mt-10 flex items-end justify-between">
+              <div className="text-left text-xs text-slate-500">
+                <p suppressHydrationWarning>
+                  発行日：{formatJpDate(new Date())}
+                </p>
+                <p className="mt-1">証明番号：CERT-{course.id}-0001</p>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="flex size-16 rotate-[-8deg] items-center justify-center rounded-full border-2 border-amber-600/70 text-amber-700">
+                  <Award className="size-7" />
+                </div>
+                <p className="mt-2 text-xs font-medium text-slate-700">
+                  ISMS教育事務局
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  E&Nコンサルティング監修
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

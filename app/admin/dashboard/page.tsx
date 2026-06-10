@@ -9,6 +9,7 @@ import {
   CircleDashed,
   BookOpen,
   Sparkles,
+  FileCheck2,
 } from "lucide-react";
 
 import {
@@ -116,12 +117,20 @@ export default function DashboardPage() {
             </p>
           </div>
         </div>
-        <Link href="/admin/generate">
-          <Button size="sm" className="gap-1.5">
-            <Sparkles className="size-3.5" />
-            新しい教材を生成
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/generate" className="hidden sm:block">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <Sparkles className="size-3.5" />
+              新しい教材を生成
+            </Button>
+          </Link>
+          <Link href="/admin/evidence" target="_blank">
+            <Button size="sm" className="gap-1.5">
+              <FileCheck2 className="size-3.5" />
+              審査用 証跡PDF出力
+            </Button>
+          </Link>
+        </div>
       </header>
 
       <div className="mx-auto max-w-6xl px-6 py-8">

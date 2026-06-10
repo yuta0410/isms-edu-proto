@@ -29,9 +29,9 @@ export default function AdminLayout({
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-screen bg-muted/30">
-      {/* Fixed cockpit sidebar — collapses to icons under md */}
-      <aside className="sticky top-0 flex h-screen w-16 shrink-0 flex-col border-r bg-card md:w-60">
+    <div className="flex min-h-screen bg-muted/30 print:block print:bg-white">
+      {/* Fixed cockpit sidebar — collapses to icons under md, hidden on print */}
+      <aside className="sticky top-0 flex h-screen w-16 shrink-0 flex-col border-r bg-card md:w-60 print:hidden">
         {/* Brand */}
         <Link
           href="/"
