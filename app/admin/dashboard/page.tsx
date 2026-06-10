@@ -121,6 +121,11 @@ export default function DashboardPage() {
               スライド生成へ
             </Button>
           </Link>
+          <Link href="/admin/materials">
+            <Button variant="ghost" size="sm">
+              参考資料管理
+            </Button>
+          </Link>
           <Link href="/pages/course">
             <Button variant="ghost" size="sm">
               受講画面へ

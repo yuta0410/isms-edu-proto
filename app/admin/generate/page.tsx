@@ -11,6 +11,10 @@ import {
   ListChecks,
   CheckCircle2,
   Presentation,
+  FileSearch,
+  Database,
+  FileOutput,
+  FolderOpen,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,33 +25,90 @@ import { Badge } from "@/components/ui/badge";
 import { COURSES } from "@/constants/courses";
 import type { SlideDeck } from "@/lib/types";
 
+// Hybrid input: a curated set of common ISMS topics + a free-text option.
+// `keyword` is the concise term fed to the generation pipeline.
+const TOPIC_OPTIONS = [
+  {
+    value: "personal-info",
+    label: "個人情報の適切な取り扱い（Pマーク/ISMS準拠）",
+    keyword: "個人情報",
+  },
+  {
+    value: "password-mfa",
+    label: "パスワード管理と多要素認証",
+    keyword: "パスワード管理",
+  },
+  {
+    value: "phishing",
+    label: "標的型メール攻撃への対策",
+    keyword: "標的型メール攻撃",
+  },
+  { value: "other", label: "その他（自由入力）", keyword: "" },
+] as const;
+
+// Rich loading sequence that mimics the RAG pipeline reading uploaded
+// materials, cross-checking IPA data, and emitting the deck.
+const LOADING_STEPS = [
+  { icon: FolderOpen, text: "参考資料を解析中..." },
+  { icon: FileSearch, text: "アップロード資料をベクトル検索中..." },
+  { icon: Database, text: "IPA・JIPDECデータと照合中..." },
+  { icon: FileOutput, text: "スライドとテストを出力中..." },
+] as const;
+const STEP_DURATION = 1100; // ms per loading message
+
 export default function GeneratePage() {
-  const [keyword, setKeyword] = useState("個人情報");
+  const [topic, setTopic] = useState<string>("personal-info");
+  const [customKeyword, setCustomKeyword] = useState("");
+  const [instruction, setInstruction] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [deck, setDeck] = useState<SlideDeck | null>(null);
   const [current, setCurrent] = useState(0);
   const [publishing, setPublishing] = useState(false);
   const [added, setAdded] = useState(false);
 
+  const selectedTopic =
+    TOPIC_OPTIONS.find((t) => t.value === topic) ?? TOPIC_OPTIONS[0];
+  const isOther = topic === "other";
+  // The keyword sent to the pipeline: preset term, or the free-text entry.
+  const resolvedKeyword = isOther ? customKeyword.trim() : selectedTopic.keyword;
+
   async function handleGenerate() {
-    if (!keyword.trim()) return;
+    if (!resolvedKeyword) return;
     setLoading(true);
+    setLoadingStep(0);
     setDeck(null);
     setAdded(false);
+
+    // Advance the loading message every STEP_DURATION ms.
+    const stepTimer = setInterval(() => {
+      setLoadingStep((s) => Math.min(s + 1, LOADING_STEPS.length - 1));
+    }, STEP_DURATION);
+
     try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keyword: keyword.trim() }),
-      });
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
-      const data: SlideDeck = await res.json();
+      // Run the (mocked) generation alongside a minimum visible duration so the
+      // multi-step loading effect always plays through.
+      const [data] = await Promise.all([
+        fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            keyword: resolvedKeyword,
+            instruction: instruction.trim() || undefined,
+          }),
+        }).then((res) => {
+          if (!res.ok) throw new Error(`API error: ${res.status}`);
+          return res.json() as Promise<SlideDeck>;
+        }),
+        new Promise((r) => setTimeout(r, LOADING_STEPS.length * STEP_DURATION)),
+      ]);
       setDeck(data);
       setCurrent(0);
     } catch (err) {
       console.error(err);
       alert("スライド生成に失敗しました。コンソールを確認してください。");
     } finally {
+      clearInterval(stepTimer);
       setLoading(false);
     }
   }
@@ -155,6 +216,11 @@ export default function GeneratePage() {
           </div>
         </div>
         <nav className="flex items-center gap-2 text-sm">
+          <Link href="/admin/materials">
+            <Button variant="ghost" size="sm">
+              参考資料管理
+            </Button>
+          </Link>
           <Link href="/admin/dashboard">
             <Button variant="ghost" size="sm">
               進捗ダッシュボード
@@ -168,48 +234,144 @@ export default function GeneratePage() {
         </nav>
       </header>
 
-      {/* Keyword input */}
-      <div className="border-b bg-muted/30 px-6 py-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              キーワード
+      {/* Hybrid input: topic selection + free-text supplement */}
+      <div className="border-b bg-muted/30 px-6 py-5">
+        <div className="flex flex-col gap-4">
+          {/* Topic selection (radio-style choices) */}
+          <div>
+            <label className="mb-2 block text-xs font-medium text-muted-foreground">
+              教育テーマを選択
             </label>
-            <Input
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="例：個人情報、パスワード管理、標的型攻撃"
-              onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
+            <div className="flex flex-wrap gap-2">
+              {TOPIC_OPTIONS.map((t) => {
+                const active = topic === t.value;
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setTopic(t.value)}
+                    aria-pressed={active}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                      active
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-input text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    <span
+                      className={`flex size-4 shrink-0 items-center justify-center rounded-full border ${
+                        active ? "border-primary" : "border-muted-foreground/40"
+                      }`}
+                    >
+                      {active && (
+                        <span className="size-2 rounded-full bg-primary" />
+                      )}
+                    </span>
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+            {isOther && (
+              <Input
+                value={customKeyword}
+                onChange={(e) => setCustomKeyword(e.target.value)}
+                placeholder="例：クリアデスク・クリアスクリーン、情報資産の分類 など"
+                onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
+                className="mt-2"
+              />
+            )}
+          </div>
+
+          {/* Free-text supplement */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              AIへの追加指示・自社独自ルールの補足（任意）
+            </label>
+            <Textarea
+              rows={2}
+              value={instruction}
+              onChange={(e) => setInstruction(e.target.value)}
+              placeholder="例：我が社ではパスワードは15文字以上、JIPDECの最新動画の内容を反映させる、など"
             />
           </div>
-          <Button onClick={handleGenerate} disabled={loading} className="gap-2">
-            {loading ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                生成中...
-              </>
-            ) : (
-              <>
-                <Sparkles className="size-4" />
-                スライド生成
-              </>
-            )}
-          </Button>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={handleGenerate}
+              disabled={loading || !resolvedKeyword}
+              className="gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  生成中...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-4" />
+                  スライド生成
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Empty / loading state */}
       {!deck && (
-        <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+        <div className="flex h-[60vh] flex-col items-center justify-center gap-6 text-center text-muted-foreground">
           {loading ? (
             <>
-              <Loader2 className="size-8 animate-spin text-primary" />
-              <p>RAGで関連知識を検索し、スライドを生成しています...</p>
+              <div className="relative flex size-16 items-center justify-center">
+                <Loader2 className="absolute size-16 animate-spin text-primary/30" />
+                {(() => {
+                  const StepIcon = LOADING_STEPS[loadingStep].icon;
+                  return <StepIcon className="size-7 text-primary" />;
+                })()}
+              </div>
+              <div className="flex flex-col items-center gap-3">
+                <p className="font-heading text-base font-medium text-foreground">
+                  {LOADING_STEPS[loadingStep].text}
+                </p>
+                {/* Step checklist */}
+                <ul className="flex flex-col gap-1.5 text-left text-sm">
+                  {LOADING_STEPS.map((step, i) => {
+                    const done = i < loadingStep;
+                    const active = i === loadingStep;
+                    return (
+                      <li
+                        key={step.text}
+                        className={`flex items-center gap-2 transition-colors ${
+                          active
+                            ? "text-foreground"
+                            : done
+                              ? "text-emerald-600"
+                              : "text-muted-foreground/40"
+                        }`}
+                      >
+                        {done ? (
+                          <CheckCircle2 className="size-4 text-emerald-500" />
+                        ) : active ? (
+                          <Loader2 className="size-4 animate-spin text-primary" />
+                        ) : (
+                          <span className="size-4 rounded-full border border-current" />
+                        )}
+                        {step.text}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  「{resolvedKeyword}」の教材を、登録済みの参考資料をもとに生成しています…
+                </p>
+              </div>
             </>
           ) : (
             <>
               <Sparkles className="size-8 opacity-40" />
-              <p>キーワードを入力して「スライド生成」を押してください。</p>
+              <p>
+                教育テーマを選択し（必要に応じて補足を入力し）「スライド生成」を押してください。
+              </p>
             </>
           )}
         </div>

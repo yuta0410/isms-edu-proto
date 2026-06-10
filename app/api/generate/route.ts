@@ -21,10 +21,14 @@ import type { SlideDeck } from "@/lib/types";
  */
 export async function POST(request: NextRequest) {
   let keyword = "";
+  let instruction = "";
 
   try {
     const body = await request.json();
     keyword = (body?.keyword ?? "").toString().trim();
+    // Optional free-text supplement (company-specific rules / extra guidance).
+    // In production this is appended to the LLM prompt alongside the RAG context.
+    instruction = (body?.instruction ?? "").toString().trim();
   } catch {
     return Response.json(
       { error: "Invalid JSON body. Expected { keyword: string }." },
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
   // ---------------------------------------------------------------------------
   // Prototype: deterministic mock that mimics the structured JSON output.
   // ---------------------------------------------------------------------------
-  const deck = buildMockDeck(keyword);
+  const deck = buildMockDeck(keyword, instruction);
 
   // Small artificial latency so the loading state is visible in the UI.
   await new Promise((resolve) => setTimeout(resolve, 800));
@@ -86,10 +90,27 @@ export async function POST(request: NextRequest) {
   return Response.json(deck);
 }
 
-function buildMockDeck(keyword: string): SlideDeck {
+function buildMockDeck(keyword: string, instruction = ""): SlideDeck {
+  // Reflect the consultant's free-text supplement back into the deck so the
+  // prototype visibly "uses" the extra instruction.
+  const ruleSlide: SlideDeck["slides"] = instruction
+    ? [
+        {
+          title: `自社ルール・追加方針（${keyword}）`,
+          bullets: [
+            "本スライドは管理者の追加指示を反映して生成されています",
+            instruction,
+            "上記ルールは全社員が遵守すべき自社独自の基準です",
+          ],
+          narration: `この内容は、貴社の管理者から指定された追加指示「${instruction}」を反映したものです。一般的なガイドラインに加え、自社固有のルールとして必ず守るようにしてください。`,
+        },
+      ]
+    : [];
+
   return {
     keyword,
     slides: [
+      ...ruleSlide,
       {
         title: `${keyword}とは何か`,
         bullets: [

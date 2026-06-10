@@ -32,6 +32,26 @@ export interface Course {
   quiz: QuizQuestion[];
 }
 
+/** File formats accepted as AI-learning reference material. */
+export type MaterialFormat = "PPTX" | "PDF";
+
+/** Ingestion status of a reference material in the RAG knowledge base. */
+export type MaterialStatus = "learning" | "learned";
+
+/**
+ * A reference document uploaded by a consultant for the AI to learn from
+ * (e.g. client-provided P-mark / ISMS audit materials, JIPDEC guidelines).
+ * In production these would be rows in a Supabase `materials` table, chunked
+ * and embedded into the IPA knowledge base.
+ */
+export interface Material {
+  id: string;
+  name: string;
+  format: MaterialFormat;
+  uploaded_at: string;
+  status: MaterialStatus;
+}
+
 export type CourseStatus = "not_started" | "in_progress" | "completed";
 
 export interface ProgressRecord {

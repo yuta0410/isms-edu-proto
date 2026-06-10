@@ -5,6 +5,7 @@ import {
   GraduationCap,
   ArrowRight,
   ShieldCheck,
+  FolderOpen,
 } from "lucide-react";
 
 import {
@@ -20,8 +21,15 @@ const LINKS = [
     href: "/admin/generate",
     icon: Presentation,
     title: "スライド生成・直感編集",
-    desc: "キーワードからスライドと確認テストを自動生成し、左右スプリットビューでリアルタイム編集・公開します。",
+    desc: "テーマ選択と補足指示から、参考資料を踏まえたスライドと確認テストを自動生成し、リアルタイム編集・公開します。",
     role: "管理者",
+  },
+  {
+    href: "/admin/materials",
+    icon: FolderOpen,
+    title: "参考資料管理（AI学習用）",
+    desc: "PマークやJIPDECなどの受領資料をAI学習用に登録・管理します。スライド生成時の参照元（RAG）になります。",
+    role: "管理者 / コンサル",
   },
   {
     href: "/admin/dashboard",
@@ -42,7 +50,7 @@ const LINKS = [
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col items-center bg-background px-6 py-16">
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-5xl">
         <div className="mb-12 flex flex-col items-center text-center">
           <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <ShieldCheck className="size-6" />
@@ -55,7 +63,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {LINKS.map((l) => {
             const Icon = l.icon;
             return (
