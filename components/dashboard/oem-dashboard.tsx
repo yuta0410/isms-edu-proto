@@ -14,6 +14,7 @@ import {
   Check,
   X,
   Building2,
+  SquareKanban,
 } from "lucide-react";
 
 import {
@@ -292,6 +293,12 @@ export function OemDashboard() {
                     ※
                     プロトタイプ：本文はコピーして任意のメールソフトに貼り付けできます。
                   </span>
+                  <Link href="/admin/opportunities">
+                    <Button variant="ghost" size="sm" className="gap-1.5">
+                      <SquareKanban className="size-3.5" />
+                      提案パイプラインで管理
+                    </Button>
+                  </Link>
                   <Button
                     variant="outline"
                     size="sm"

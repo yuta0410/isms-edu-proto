@@ -7,7 +7,6 @@ import {
   ShieldCheck,
   LayoutDashboard,
   Presentation,
-  FolderOpen,
   Send,
   GraduationCap,
   LogOut,
@@ -17,6 +16,8 @@ import {
   ScrollText,
   FileCheck2,
   Building2,
+  CalendarRange,
+  SquareKanban,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -41,10 +42,10 @@ const NAV: Record<WorkspaceMode, NavItem[]> = {
   ],
   oem: [
     { href: "/admin/dashboard", label: "統括ダッシュボード", icon: Gauge },
-    { href: "/admin/generate", label: "教材スタジオ", icon: Presentation },
+    { href: "/admin/tenants", label: "顧客・アカウント管理", icon: Building2 },
+    { href: "/admin/schedule", label: "監査スケジュール", icon: CalendarRange },
+    { href: "/admin/opportunities", label: "提案パイプライン", icon: SquareKanban },
     { href: "/admin/courses", label: "監修教材ライブラリ", icon: Layers },
-    { href: "/admin/materials", label: "ナレッジ・規定管理", icon: FolderOpen },
-    { href: "/admin/distribution", label: "全社配信状況", icon: Send },
   ],
 };
 
