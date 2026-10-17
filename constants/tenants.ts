@@ -34,12 +34,6 @@ export const TENANT_DIRECTORY: TenantProfile[] = [
   { id: "a-corp", name: "A株式会社", industry: "製造" },
 ];
 
-/**
- * テナントモードでログインしている「自社」のテナントID。
- * プロトタイプでは固定。実運用ではセッション（JWT クレーム）から決定する。
- */
-export const OWN_TENANT_ID = "smart-flow";
-
 export function getTenantProfile(id: string): TenantProfile | undefined {
   return TENANT_DIRECTORY.find((t) => t.id === id);
 }

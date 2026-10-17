@@ -23,7 +23,7 @@ import {
 import { ENROLLMENTS } from "@/constants/enrollments";
 import { getWeakness } from "@/constants/evidence";
 import { scopeByTenant } from "@/lib/scope";
-import { useWorkspace } from "@/lib/workspace";
+import { useTenantWorkspace } from "@/lib/workspace";
 import {
   CourseSummaryCards,
   EnrollmentTable,
@@ -36,7 +36,7 @@ import {
  * 企業選択・アップセル導線は一切持たない。
  */
 export function TenantDashboard() {
-  const ws = useWorkspace();
+  const ws = useTenantWorkspace();
   const rows = scopeByTenant(ws, ENROLLMENTS, (r) => r.corp);
   const weakness = getWeakness(ws.tenantId);
   const s = summarize(rows);

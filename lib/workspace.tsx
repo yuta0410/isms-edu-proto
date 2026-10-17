@@ -8,55 +8,73 @@ import {
 } from "react";
 
 import {
-  OWN_TENANT_ID,
   PARTNER,
   getTenantProfile,
   type TenantProfile,
 } from "@/constants/tenants";
 
 /**
- * ワークスペース（表示モード）のグローバル状態。
+ * ワークスペース（ログインセッション）のグローバル状態。
  *
- * - "tenant": 契約企業の管理者として、自社（OWN_TENANT_ID）のデータだけを扱う。
+ * - "tenant": 契約企業の管理者として、自社（tenantId）のデータだけを扱う。
  * - "oem":    監査事業者（OEMパートナー）として、全テナントを横断して扱う。
  *
- * プロトタイプではクライアント側の切り替えだが、実運用ではモード＝ログイン中の
- * メンバーシップ（JWT クレーム）であり、データ分離は DB の RLS で強制する。
+ * プロトタイプではログイン画面のデモアカウントでセッションをセットする。
+ * 実運用ではセッション＝認証済みメンバーシップ（JWT クレーム）であり、
+ * データ分離は DB の RLS で強制する。
  */
 export type WorkspaceMode = "tenant" | "oem";
 
-const STORAGE_KEY = "isms-edu:workspace-mode";
-const DEFAULT_MODE: WorkspaceMode = "tenant";
+export type Session = { mode: "oem" } | { mode: "tenant"; tenantId: string };
+
+const STORAGE_KEY = "isms-edu:session";
 
 // --- tiny external store (memory first, localStorage as best-effort persistence) ---
 const listeners = new Set<() => void>();
-let currentMode: WorkspaceMode | null = null;
+// undefined = not read yet; null = signed out.
+let currentSession: Session | null | undefined;
 
-function parseMode(value: string | null): WorkspaceMode {
-  return value === "oem" ? "oem" : DEFAULT_MODE;
+function parseSession(raw: string | null): Session | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as Partial<Session> & { tenantId?: unknown };
+    if (v.mode === "oem") return { mode: "oem" };
+    if (
+      v.mode === "tenant" &&
+      typeof v.tenantId === "string" &&
+      getTenantProfile(v.tenantId)
+    ) {
+      return { mode: "tenant", tenantId: v.tenantId };
+    }
+  } catch {
+    /* corrupted value → treat as signed out */
+  }
+  return null;
 }
 
-function getSnapshot(): WorkspaceMode {
-  if (currentMode === null) {
+function getSnapshot(): Session | null {
+  if (currentSession === undefined) {
     try {
-      currentMode = parseMode(window.localStorage.getItem(STORAGE_KEY));
+      currentSession = parseSession(window.localStorage.getItem(STORAGE_KEY));
     } catch {
-      currentMode = DEFAULT_MODE;
+      currentSession = null;
     }
   }
-  return currentMode;
+  return currentSession;
 }
 
-function getServerSnapshot(): WorkspaceMode {
-  return DEFAULT_MODE;
+// The server cannot know the session. `undefined` means "still resolving", so
+// guards wait for the client snapshot instead of redirecting during hydration.
+function getServerSnapshot(): Session | null | undefined {
+  return undefined;
 }
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  // Keep multiple tabs in sync.
+  // Keep multiple tabs in sync (e.g. logging out in one tab).
   const onStorage = (e: StorageEvent) => {
     if (e.key !== STORAGE_KEY) return;
-    currentMode = parseMode(e.newValue);
+    currentSession = parseSession(e.newValue);
     listener();
   };
   window.addEventListener("storage", onStorage);
@@ -66,10 +84,14 @@ function subscribe(listener: () => void) {
   };
 }
 
-function writeMode(mode: WorkspaceMode) {
-  currentMode = mode;
+function writeSession(session: Session | null) {
+  currentSession = session;
   try {
-    window.localStorage.setItem(STORAGE_KEY, mode);
+    if (session) {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    } else {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
   } catch {
     /* storage may be blocked (private mode etc.); memory state still works */
   }
@@ -77,45 +99,103 @@ function writeMode(mode: WorkspaceMode) {
 }
 
 // --- context ---
-export interface Workspace {
-  mode: WorkspaceMode;
-  isOem: boolean;
-  /** テナントモード時の自社ID（OEMモードでも「自社」の参照用に保持）。 */
-  tenantId: string;
-  tenant: TenantProfile;
+interface WorkspaceBase {
   partner: typeof PARTNER;
-  setMode: (mode: WorkspaceMode) => void;
 }
 
-const WorkspaceContext = createContext<Workspace | null>(null);
+export type Workspace = WorkspaceBase &
+  (
+    | { mode: "oem"; isOem: true; tenantId: null; tenant: null }
+    | { mode: "tenant"; isOem: false; tenantId: string; tenant: TenantProfile }
+  );
+
+export type TenantWorkspace = Extract<Workspace, { mode: "tenant" }>;
+
+export type SessionStatus = "loading" | "authenticated" | "unauthenticated";
+
+interface SessionContextValue {
+  status: SessionStatus;
+  workspace: Workspace | null;
+  signIn: (session: Session) => void;
+  signOut: () => void;
+}
+
+const SessionContext = createContext<SessionContextValue | null>(null);
+
+function toWorkspace(session: Session): Workspace | null {
+  if (session.mode === "oem") {
+    return {
+      mode: "oem",
+      isOem: true,
+      tenantId: null,
+      tenant: null,
+      partner: PARTNER,
+    };
+  }
+  const tenant = getTenantProfile(session.tenantId);
+  if (!tenant) return null;
+  return {
+    mode: "tenant",
+    isOem: false,
+    tenantId: tenant.id,
+    tenant,
+    partner: PARTNER,
+  };
+}
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
-  const mode = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const session = useSyncExternalStore<Session | null | undefined>(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
 
-  const value = useMemo<Workspace>(() => {
-    const tenant = getTenantProfile(OWN_TENANT_ID);
-    if (!tenant) throw new Error(`Unknown tenant: ${OWN_TENANT_ID}`);
+  const value = useMemo<SessionContextValue>(() => {
+    const workspace = session ? toWorkspace(session) : null;
     return {
-      mode,
-      isOem: mode === "oem",
-      tenantId: tenant.id,
-      tenant,
-      partner: PARTNER,
-      setMode: writeMode,
+      status:
+        session === undefined
+          ? "loading"
+          : workspace
+            ? "authenticated"
+            : "unauthenticated",
+      workspace,
+      signIn: writeSession,
+      signOut: () => writeSession(null),
     };
-  }, [mode]);
+  }, [session]);
 
   return (
-    <WorkspaceContext.Provider value={value}>
-      {children}
-    </WorkspaceContext.Provider>
+    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
   );
 }
 
-export function useWorkspace(): Workspace {
-  const ctx = useContext(WorkspaceContext);
+/** ログイン状態と signIn / signOut。ログイン画面や認証ガードで使う。 */
+export function useSession(): SessionContextValue {
+  const ctx = useContext(SessionContext);
   if (!ctx) {
-    throw new Error("useWorkspace must be used within <WorkspaceProvider>");
+    throw new Error("useSession must be used within <WorkspaceProvider>");
   }
   return ctx;
+}
+
+/**
+ * 認証済みワークスペース。管理画面は layout の認証ガード配下でのみ描画される
+ * ため、ここでは必ずセッションが存在する。
+ */
+export function useWorkspace(): Workspace {
+  const { workspace } = useSession();
+  if (!workspace) {
+    throw new Error("useWorkspace requires an authenticated session");
+  }
+  return workspace;
+}
+
+/** テナント専用画面向け：テナントモードであることを保証して返す。 */
+export function useTenantWorkspace(): TenantWorkspace {
+  const ws = useWorkspace();
+  if (ws.isOem) {
+    throw new Error("useTenantWorkspace requires a tenant session");
+  }
+  return ws;
 }

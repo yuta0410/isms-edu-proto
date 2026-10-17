@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ShieldCheck,
   LayoutDashboard,
@@ -9,7 +10,8 @@ import {
   FolderOpen,
   Send,
   GraduationCap,
-  Home,
+  LogOut,
+  Loader2,
   Layers,
   Gauge,
   ScrollText,
@@ -18,8 +20,11 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { useWorkspace, type WorkspaceMode } from "@/lib/workspace";
-import { ModeSwitch } from "@/components/mode-switch";
+import {
+  useSession,
+  type Workspace,
+  type WorkspaceMode,
+} from "@/lib/workspace";
 
 type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
 
@@ -48,8 +53,48 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const { status, workspace, signOut } = useSession();
+
+  // Auth guard. "loading" (server render / hydration) never redirects, so a
+  // signed-in user is not bounced to the login page before the client
+  // snapshot is read.
+  useEffect(() => {
+    if (status === "unauthenticated") router.replace("/");
+  }, [status, router]);
+
+  if (!workspace) {
+    return (
+      <div className="flex min-h-screen flex-1 items-center justify-center text-muted-foreground">
+        <Loader2 className="size-6 animate-spin" />
+      </div>
+    );
+  }
+
+  function handleLogout() {
+    // Navigate first so the guard above doesn't race the redirect, then clear.
+    router.replace("/");
+    signOut();
+  }
+
+  return (
+    <AdminShell workspace={workspace} onLogout={handleLogout}>
+      {children}
+    </AdminShell>
+  );
+}
+
+function AdminShell({
+  workspace,
+  onLogout,
+  children,
+}: {
+  workspace: Workspace;
+  onLogout: () => void;
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
-  const { mode, isOem, tenant, partner } = useWorkspace();
+  const { mode, isOem, tenant, partner } = workspace;
 
   return (
     <div className="flex min-h-screen bg-muted/30 print:block print:bg-white">
@@ -74,7 +119,7 @@ export default function AdminLayout({
           </span>
           <span className="hidden min-w-0 flex-col leading-tight md:flex">
             <span className="truncate font-heading text-sm font-semibold">
-              {isOem ? partner.brand_name : tenant.name}
+              {tenant ? tenant.name : partner.brand_name}
             </span>
             <span className="truncate text-[0.7rem] text-muted-foreground">
               {isOem ? "統括コックピット（OEM）" : `${partner.brand_name} 管理画面`}
@@ -118,27 +163,43 @@ export default function AdminLayout({
           })}
         </nav>
 
-        {/* Footer: mode switch + jump out to learner-facing views */}
+        {/* Footer: signed-in account, learner portal, logout */}
         <div className="flex flex-col gap-1 border-t p-2 md:p-3">
-          <div className="mb-2">
-            <ModeSwitch />
+          <div className="mb-1 hidden items-center gap-2.5 rounded-lg bg-muted/60 px-3 py-2 md:flex">
+            <span
+              className={cn(
+                "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white",
+                isOem ? "bg-violet-600" : "bg-primary"
+              )}
+            >
+              {isOem ? "O" : "T"}
+            </span>
+            <span className="flex min-w-0 flex-col leading-tight">
+              <span className="truncate text-xs font-medium">
+                {tenant ? tenant.name : partner.name}
+              </span>
+              <span className="text-[0.7rem] text-muted-foreground">
+                {isOem ? "OEM管理者" : "テナント管理者"}
+              </span>
+            </span>
           </div>
           <Link
-            href={isOem ? "/pages/course" : `/pages/course?corp=${tenant.id}`}
+            href={tenant ? `/pages/course?corp=${tenant.id}` : "/pages/course"}
             className="flex items-center justify-center gap-3 rounded-lg px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:justify-start md:px-3"
             title="受講ポータル"
           >
             <GraduationCap className="size-[1.15rem] shrink-0" />
             <span className="hidden md:inline">受講ポータル</span>
           </Link>
-          <Link
-            href="/"
-            className="flex items-center justify-center gap-3 rounded-lg px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:justify-start md:px-3"
-            title="ホーム"
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex items-center justify-center gap-3 rounded-lg px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive md:justify-start md:px-3"
+            title="ログアウト"
           >
-            <Home className="size-[1.15rem] shrink-0" />
-            <span className="hidden md:inline">ホーム</span>
-          </Link>
+            <LogOut className="size-[1.15rem] shrink-0" />
+            <span className="hidden md:inline">ログアウト</span>
+          </button>
         </div>
       </aside>
 
