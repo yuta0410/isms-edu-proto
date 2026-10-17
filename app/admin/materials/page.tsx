@@ -16,6 +16,8 @@ import {
   Eye,
   Lightbulb,
   ScanSearch,
+  Lock,
+  UserCheck,
 } from "lucide-react";
 
 import {
@@ -44,6 +46,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import {
   REGISTERED_POLICIES,
   DEFAULT_EXTRACTED_RULES,
@@ -121,6 +124,12 @@ export default function MaterialsPage() {
   const [policyProgress, setPolicyProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [detail, setDetail] = useState<RegisteredPolicy | null>(null);
+  // Opt-in sharing of each policy with the assigned OEM consultant (UI only;
+  // default OFF). In production this maps to a per-row `shared_with_partner`
+  // flag that the partner-side RLS policy checks.
+  const [sharedWithOem, setSharedWithOem] = useState<Record<string, boolean>>(
+    {}
+  );
   const policyInputRef = useRef<HTMLInputElement>(null);
 
   function handleUpload() {
@@ -417,6 +426,21 @@ export default function MaterialsPage() {
                   />
                 </label>
 
+                {/* Trust statement: tenant isolation + zero data retention */}
+                <div className="flex items-start gap-3 rounded-lg border border-emerald-300/70 bg-emerald-50/70 px-3.5 py-3 dark:border-emerald-800/50 dark:bg-emerald-950/20">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                    <Lock className="size-3.5" />
+                  </span>
+                  <div className="text-sm leading-relaxed">
+                    <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+                      規定データは安全に保護されます
+                    </p>
+                    <p className="mt-0.5 text-emerald-900/80 dark:text-emerald-200/80">
+                      ※アップロードされた規定データはテナント専用領域に隔離され、外部のAI学習には一切利用されません（ゼロデータリテンション）
+                    </p>
+                  </div>
+                </div>
+
                 {/* Analyze / vectorize progress */}
                 {policyUploading && (
                   <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 duration-300 animate-in fade-in">
@@ -473,7 +497,7 @@ export default function MaterialsPage() {
                 <CardDescription>
                   {isOem
                     ? "企業ごとに登録された社内規定です。「詳細確認」でAIが抽出したルールを確認できます。"
-                    : "登録済みの自社規定です。「詳細確認」でAIが抽出したルールを確認できます。"}
+                    : "登録済みの自社規定です。「詳細確認」でAIが抽出したルールを確認できます。担当コンサルタントへの共有は、規定ごとに許可した場合のみ行われます（初期設定は非公開）。"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -484,6 +508,18 @@ export default function MaterialsPage() {
                       <TableHead>ファイル名</TableHead>
                       <TableHead>アップロード日時</TableHead>
                       <TableHead>AI学習ステータス</TableHead>
+                      {!isOem && (
+                        <TableHead>
+                          <span className="flex items-center gap-1.5 py-1 leading-tight">
+                            <UserCheck className="size-3.5 shrink-0" />
+                            <span>
+                              担当コンサルタント
+                              <br />
+                              への閲覧許可
+                            </span>
+                          </span>
+                        </TableHead>
+                      )}
                       <TableHead className="text-right">アクション</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -513,6 +549,31 @@ export default function MaterialsPage() {
                             学習完了
                           </Badge>
                         </TableCell>
+                        {!isOem && (
+                          <TableCell>
+                            <label className="flex items-center gap-2">
+                              <Switch
+                                checked={!!sharedWithOem[p.id]}
+                                onCheckedChange={(v) =>
+                                  setSharedWithOem((prev) => ({
+                                    ...prev,
+                                    [p.id]: v,
+                                  }))
+                                }
+                                aria-label={`「${p.file_name}」を担当コンサルタントに共有`}
+                              />
+                              <span
+                                className={`text-xs ${
+                                  sharedWithOem[p.id]
+                                    ? "font-medium text-primary"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                {sharedWithOem[p.id] ? "共有中" : "非公開"}
+                              </span>
+                            </label>
+                          </TableCell>
+                        )}
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button
@@ -540,7 +601,7 @@ export default function MaterialsPage() {
                     {visiblePolicies.length === 0 && (
                       <TableRow>
                         <TableCell
-                          colSpan={isOem ? 5 : 4}
+                          colSpan={5}
                           className="py-8 text-center text-muted-foreground"
                         >
                           登録済みの社内規定がありません。上のエリアからPDFをアップロードしてください。

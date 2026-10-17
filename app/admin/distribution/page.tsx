@@ -10,6 +10,8 @@ import {
   Hash,
   X,
   Users,
+  CalendarClock,
+  BellRing,
 } from "lucide-react";
 
 import {
@@ -33,6 +35,12 @@ import {
   DISTRIBUTIONS,
   completionRate,
 } from "@/constants/distribution";
+import {
+  daysBetween,
+  formatFullDate,
+  parseDate,
+  startOfDay,
+} from "@/constants/accounts";
 import type { DistributionRecord } from "@/lib/types";
 import { scopeByTenant } from "@/lib/scope";
 import { useWorkspace } from "@/lib/workspace";
@@ -51,6 +59,7 @@ export default function DistributionPage() {
   // Track which rows have just been reminded (brief visual confirmation).
   const [reminded, setReminded] = useState<Record<string, boolean>>({});
   const toastSeq = useRef(0);
+  const [today] = useState(() => startOfDay(new Date()));
 
   function pushToast(message: string) {
     const id = ++toastSeq.current;
@@ -170,6 +179,7 @@ export default function DistributionPage() {
                   {isOem && <TableHead>配信先企業</TableHead>}
                   <TableHead>対象グループ</TableHead>
                   <TableHead>配信日時</TableHead>
+                  <TableHead>受講期限</TableHead>
                   <TableHead>通知</TableHead>
                   <TableHead className="min-w-[160px]">受講完了率</TableHead>
                   <TableHead className="text-right">操作</TableHead>
@@ -195,6 +205,9 @@ export default function DistributionPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {r.distributed_at}
+                      </TableCell>
+                      <TableCell>
+                        <DueCell r={r} today={today} done={done} />
                       </TableCell>
                       <TableCell>
                         <span className="flex items-center gap-1.5">
@@ -289,6 +302,49 @@ export default function DistributionPage() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function DueCell({
+  r,
+  today,
+  done,
+}: {
+  r: DistributionRecord;
+  today: Date;
+  done: boolean;
+}) {
+  const due = parseDate(r.due_on);
+  const left = daysBetween(today, due);
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="flex items-center gap-1.5 text-sm whitespace-nowrap">
+        <CalendarClock className="size-3.5 text-muted-foreground" />
+        {formatFullDate(due)}
+      </span>
+      <span className="flex flex-wrap items-center gap-1">
+        {done ? (
+          <Badge variant="muted">完了</Badge>
+        ) : left < 0 ? (
+          <Badge variant="destructive">期限超過 {-left}日</Badge>
+        ) : left <= 3 ? (
+          <Badge variant="warning">
+            {left === 0 ? "本日期限" : `あと${left}日`}
+          </Badge>
+        ) : (
+          <Badge variant="muted">あと{left}日</Badge>
+        )}
+        {r.auto_remind && !done && (
+          <span
+            className="inline-flex items-center text-primary"
+            title="期限3日前に未受講者へ自動リマインド"
+            aria-label="自動リマインド設定済み"
+          >
+            <BellRing className="size-3.5" />
+          </span>
+        )}
+      </span>
     </div>
   );
 }

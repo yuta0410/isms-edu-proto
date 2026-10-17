@@ -12,6 +12,8 @@ import {
   Check,
   MessageCircle,
   Hash,
+  CalendarClock,
+  BellRing,
 } from "lucide-react";
 
 import {
@@ -24,6 +26,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { addMonths, formatFullDate, parseDate } from "@/constants/accounts";
 import { GROUPS } from "@/constants/distribution";
 import type { DeliveryGroup, NotifyChannel } from "@/lib/types";
 import { visibleTenants } from "@/lib/scope";
@@ -39,6 +43,11 @@ const SEND_STEPS = [
   { text: "配信を確定しています...", icon: CheckCircle2 },
 ] as const;
 const STEP_MS = 900;
+
+function toIsoDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 // Lightweight toggle switch (no dedicated UI primitive in this project).
 function Toggle({
@@ -108,6 +117,10 @@ export function DistributionModal({
     slack: false,
   });
   const [copied, setCopied] = useState(false);
+  // 受講期限（初期値：1ヶ月後）と、期限3日前の自動リマインド。
+  const [minDue] = useState(() => toIsoDate(new Date()));
+  const [dueOn, setDueOn] = useState(() => toIsoDate(addMonths(new Date(), 1)));
+  const [autoRemind, setAutoRemind] = useState(true);
 
   // Reset the flow back to the config step whenever the modal transitions to
   // open. Using the "adjust state during render" pattern (tracking the previous
@@ -263,6 +276,38 @@ export function DistributionModal({
                 </div>
               </div>
 
+              {/* Deadline + auto reminder */}
+              <div>
+                <label
+                  htmlFor="dist-due"
+                  className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+                >
+                  <CalendarClock className="size-3.5" />
+                  受講期限
+                </label>
+                <Input
+                  id="dist-due"
+                  type="date"
+                  value={dueOn}
+                  min={minDue}
+                  onChange={(e) => setDueOn(e.target.value)}
+                  className="sm:max-w-[12rem]"
+                />
+                <label className="mt-2 flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm">
+                  <span className="flex items-center gap-2">
+                    <BellRing
+                      className={`size-4 ${autoRemind ? "text-primary" : "text-muted-foreground"}`}
+                    />
+                    期限の3日前に未受講者へ自動リマインドを送信する
+                  </span>
+                  <Switch
+                    checked={autoRemind}
+                    onCheckedChange={setAutoRemind}
+                    disabled={!dueOn}
+                  />
+                </label>
+              </div>
+
               {/* Notification channels */}
               <div>
                 <label className="mb-2 block text-xs font-medium text-muted-foreground">
@@ -293,7 +338,7 @@ export function DistributionModal({
               </span>
               <Button
                 onClick={handleDistribute}
-                disabled={corps.length === 0}
+                disabled={corps.length === 0 || !dueOn}
                 className="gap-2"
               >
                 <Send className="size-4" />
@@ -396,6 +441,18 @@ export function DistributionModal({
                 );
               })}
               <Badge variant="muted">{group}</Badge>
+              {dueOn && (
+                <Badge variant="info">
+                  <CalendarClock className="size-3" />
+                  期限 {formatFullDate(parseDate(dueOn))}
+                </Badge>
+              )}
+              {autoRemind && dueOn && (
+                <Badge variant="info">
+                  <BellRing className="size-3" />
+                  3日前に自動リマインド
+                </Badge>
+              )}
               {channels.line && (
                 <Badge variant="success">
                   <MessageCircle className="size-3" />

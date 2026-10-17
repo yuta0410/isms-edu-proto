@@ -84,6 +84,8 @@ export interface DistributionRecord {
   corp_name: string;
   group: DeliveryGroup;
   distributed_at: string;
+  due_on: string; // 受講期限 YYYY-MM-DD
+  auto_remind: boolean; // 期限3日前に未受講者へ自動リマインド
   total_count: number;
   completed_count: number;
   channels: NotifyChannel[];

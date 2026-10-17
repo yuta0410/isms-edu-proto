@@ -18,6 +18,7 @@ import {
   Building2,
   CalendarRange,
   SquareKanban,
+  Users,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ const NAV: Record<WorkspaceMode, NavItem[]> = {
     { href: "/admin/generate", label: "教材をつくる", icon: Presentation },
     { href: "/admin/courses", label: "教材ライブラリ", icon: Layers },
     { href: "/admin/distribution", label: "配信と進捗", icon: Send },
+    { href: "/admin/members", label: "受講者管理", icon: Users },
     { href: "/admin/materials", label: "社内規定", icon: ScrollText },
     { href: "/admin/evidence", label: "証跡・記録", icon: FileCheck2 },
   ],

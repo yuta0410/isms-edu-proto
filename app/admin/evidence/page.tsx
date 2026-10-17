@@ -11,6 +11,9 @@ import {
   Loader2,
   Timer,
   History,
+  QrCode,
+  Fingerprint,
+  BadgeCheck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -20,6 +23,34 @@ import { useWorkspace } from "@/lib/workspace";
 
 function formatJpDate(d: Date): string {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+function formatTimestamp(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} JST`
+  );
+}
+
+// Prototype stand-in for the SHA-256 digest of the issued PDF: a deterministic
+// 64-hex-char string derived from the report content, so the same report always
+// shows the same value. In production the server hashes the rendered PDF and
+// stores the digest alongside the evidence record for QR verification.
+function dummySha256(input: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  let out = "";
+  for (let round = 0; round < 8; round++) {
+    for (let i = 0; i < input.length; i++) {
+      const c = input.charCodeAt(i);
+      h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+      h2 = Math.imul(h2 ^ (c + round), 0x5bd1e995) >>> 0;
+    }
+    h1 = (h1 ^ round ^ (h2 >>> 13)) >>> 0;
+    out += h1.toString(16).padStart(8, "0");
+  }
+  return out;
 }
 
 export default function EvidencePage() {
@@ -51,6 +82,9 @@ function EvidenceReportView() {
 
   const docNumber = `ENV-EVID-${report.corp}-2026`;
   const certNumber = `EVID-${report.corp}-0001`;
+  const digest = dummySha256(
+    JSON.stringify({ docNumber, certNumber, learners: report.learners })
+  );
 
   // 学習ログのメーター正規化用（最長滞在スライドを 100% とする）。
   const maxDwell = Math.max(...report.slide_logs.map((s) => s.seconds), 1);
@@ -298,6 +332,45 @@ function EvidenceReportView() {
           <div className="flex shrink-0 gap-4">
             <SignatureBox label="実施責任者印" />
             <SignatureBox label="企業管理者印" />
+          </div>
+        </section>
+
+        {/* 真正性証明（改ざん検知） */}
+        <section className="mt-6 break-inside-avoid rounded-lg border border-slate-300 bg-slate-50 px-4 py-3">
+          <div className="flex items-start gap-4">
+            <div className="min-w-0 flex-1">
+              <h3 className="flex items-center gap-1.5 text-[12px] font-bold text-slate-800">
+                <BadgeCheck className="size-3.5 text-emerald-700" />
+                真正性証明（改ざん検知）
+              </h3>
+              <dl className="mt-2 grid grid-cols-[7.5rem_1fr] gap-x-2 gap-y-1 text-[11px]">
+                <dt className="text-slate-500">システム出力日時</dt>
+                <dd className="text-slate-800" suppressHydrationWarning>
+                  {formatTimestamp(new Date())}
+                </dd>
+                <dt className="flex items-center gap-1 text-slate-500">
+                  <Fingerprint className="size-3" />
+                  SHA-256 ハッシュ値
+                </dt>
+                <dd className="font-mono text-[10px] leading-snug break-all text-slate-800">
+                  {digest}
+                </dd>
+                <dt className="text-slate-500">検証ID</dt>
+                <dd className="font-mono text-slate-800">
+                  {certNumber}-{digest.slice(0, 8).toUpperCase()}
+                </dd>
+              </dl>
+              <p className="mt-2 text-[10.5px] leading-relaxed text-slate-600">
+                この証跡はシステムから正規に発行されたものであり、QRコードから原本との一致を検証できます。
+                記載内容が1文字でも変更された場合、ハッシュ値が一致せず改ざんとして検知されます。
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col items-center">
+              <div className="flex size-20 items-center justify-center rounded border border-slate-300 bg-white">
+                <QrCode className="size-16 text-slate-800" strokeWidth={1.25} />
+              </div>
+              <span className="mt-1 text-[10px] text-slate-500">原本照合用QR</span>
+            </div>
           </div>
         </section>
       </div>
