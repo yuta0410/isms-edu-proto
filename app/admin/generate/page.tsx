@@ -20,6 +20,7 @@ import {
   UploadCloud,
   ScanSearch,
   X,
+  ScrollText,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -34,8 +35,10 @@ import {
   SAMPLE_POLICIES,
   POLICY_ANALYSIS_STEPS,
   getSlideHighlight,
+  getTenantPolicy,
 } from "@/constants/local-rules";
 import type { SlideDeck } from "@/lib/types";
+import { useWorkspace } from "@/lib/workspace";
 
 // Hybrid input: a curated set of common ISMS topics + a free-text option.
 // `keyword` is the concise term fed to the generation pipeline.
@@ -86,6 +89,7 @@ const STEP_DURATION = 1100; // ms per loading message
 const POLICY_STEP_DURATION = 850; // ms per policy-extraction message
 
 export default function GeneratePage() {
+  const { isOem, tenantId } = useWorkspace();
   const [topic, setTopic] = useState<string>("personal-info");
   const [customKeyword, setCustomKeyword] = useState("");
   const [instruction, setInstruction] = useState("");
@@ -103,7 +107,16 @@ export default function GeneratePage() {
   const [policyAnalyzed, setPolicyAnalyzed] = useState(false);
   const [policyStep, setPolicyStep] = useState(0);
 
-  const selectedPolicy = policyId ? POLICY_PROFILES[policyId] : null;
+  // OEM: the consultant picks any sample/tenant policy to demo.
+  // Tenant: the company's registered policy is applied automatically.
+  const selectedPolicy = isOem
+    ? policyId
+      ? POLICY_PROFILES[policyId]
+      : null
+    : getTenantPolicy(tenantId);
+  const showExtractedRules = isOem
+    ? Boolean(selectedPolicy) && policyAnalyzed && !policyAnalyzing
+    : Boolean(selectedPolicy);
 
   const selectedTopic =
     TOPIC_OPTIONS.find((t) => t.value === topic) ?? TOPIC_OPTIONS[0];
@@ -276,17 +289,23 @@ export default function GeneratePage() {
           </div>
           <div>
             <h1 className="font-heading text-base font-semibold">
-              スライド生成・直感編集
+              {isOem ? "教材スタジオ" : "教材をつくる"}
             </h1>
             <p className="text-xs text-muted-foreground">
-              管理者向け / ISMS教育コンテンツ作成
+              {isOem
+                ? "監修教材の生成・直感編集（全契約企業向け）"
+                : "自社規定を反映したISMS教育コンテンツ作成"}
             </p>
           </div>
         </div>
         <Link href="/admin/materials" className="hidden sm:block">
           <Button variant="outline" size="sm" className="gap-1.5">
-            <FolderOpen className="size-3.5" />
-            参考資料を確認
+            {isOem ? (
+              <FolderOpen className="size-3.5" />
+            ) : (
+              <ScrollText className="size-3.5" />
+            )}
+            {isOem ? "参考資料を確認" : "社内規定を確認"}
           </Button>
         </Link>
       </header>
@@ -339,7 +358,32 @@ export default function GeneratePage() {
             )}
           </div>
 
-          {/* 社内規定PDF（ローカルルール）のアップロード／学習 */}
+          {/* 社内規定（ローカルルール）: テナントは自社規定を自動適用 */}
+          {!isOem ? (
+            <div className="flex items-center gap-3 rounded-xl border border-amber-300/60 bg-amber-50/50 p-4 dark:border-amber-800/50 dark:bg-amber-950/20">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300">
+                <ScrollText className="size-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">
+                  {selectedPolicy
+                    ? "自社の社内規定を自動適用します"
+                    : "社内規定が未登録です"}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {selectedPolicy
+                    ? `${selectedPolicy.file_name}（一般論より優先してAIが反映）`
+                    : "「社内規定」メニューからPDFを登録すると、教材に自社ルールが反映されます。"}
+                </p>
+              </div>
+              {selectedPolicy && (
+                <Badge variant="success">
+                  <CheckCircle2 className="size-3" />
+                  適用中
+                </Badge>
+              )}
+            </div>
+          ) : (
           <div className="flex flex-col gap-3 rounded-xl border border-dashed border-input bg-card p-4">
             <div className="flex items-center gap-3">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300">
@@ -369,7 +413,7 @@ export default function GeneratePage() {
                 <option value="">サンプル規定ファイルを選択...</option>
                 {SAMPLE_POLICIES.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.file_name}
+                    {p.label}
                   </option>
                 ))}
               </select>
@@ -403,6 +447,7 @@ export default function GeneratePage() {
               )}
             </div>
           </div>
+          )}
 
           {/* Free-text supplement */}
           <div>
@@ -440,7 +485,7 @@ export default function GeneratePage() {
       </div>
 
       {/* AIが抽出した独自ルール（優先適用）— 解析完了後にフワッと表示 */}
-      {selectedPolicy && policyAnalyzed && !policyAnalyzing && (
+      {selectedPolicy && showExtractedRules && (
         <div className="border-b bg-amber-50/50 px-6 py-4 duration-300 animate-in fade-in slide-in-from-top-2 dark:bg-amber-950/20">
           <div className="rounded-xl border border-amber-300/70 bg-card p-4 dark:border-amber-800/50">
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -448,7 +493,8 @@ export default function GeneratePage() {
                 🔍 AIが抽出した独自ルール（優先適用）
               </span>
               <Badge variant="warning">
-                {selectedPolicy.company} / {selectedPolicy.file_name}
+                {isOem ? selectedPolicy.company : "自社規定"} /{" "}
+                {selectedPolicy.file_name}
               </Badge>
               <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
                 💡 一般論（IPA）に優先して適用

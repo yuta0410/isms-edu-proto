@@ -44,13 +44,14 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { EVIDENCE_COMPANIES } from "@/constants/evidence";
 import {
   REGISTERED_POLICIES,
   DEFAULT_EXTRACTED_RULES,
   type RegisteredPolicy,
 } from "@/constants/local-rules";
 import type { Material, MaterialFormat } from "@/lib/types";
+import { scopeByTenant, visibleTenants } from "@/lib/scope";
+import { useWorkspace } from "@/lib/workspace";
 
 // Seed data — client-provided documents already ingested into the AI knowledge
 // base. In production: supabase.from("materials").select(...).
@@ -99,6 +100,9 @@ function nowDateSlash(): string {
 }
 
 export default function MaterialsPage() {
+  const ws = useWorkspace();
+  const { isOem } = ws;
+  const tenants = visibleTenants(ws);
   // --- General reference materials (existing) ---
   const [materials, setMaterials] = useState<Material[]>(INITIAL_MATERIALS);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -108,9 +112,10 @@ export default function MaterialsPage() {
   // --- Company local-rule policies (new) ---
   const [policies, setPolicies] =
     useState<RegisteredPolicy[]>(REGISTERED_POLICIES);
-  const [policyCorp, setPolicyCorp] = useState<string>(
-    EVIDENCE_COMPANIES[0].corp
-  );
+  const [selectedCorp, setSelectedCorp] = useState<string>(tenants[0].id);
+  // Tenant mode always binds uploads to the own company.
+  const policyCorp = isOem ? selectedCorp : ws.tenantId;
+  const visiblePolicies = scopeByTenant(ws, policies, (p) => p.corp);
   const [policyFile, setPolicyFile] = useState<File | null>(null);
   const [policyUploading, setPolicyUploading] = useState(false);
   const [policyProgress, setPolicyProgress] = useState(0);
@@ -153,7 +158,7 @@ export default function MaterialsPage() {
 
   // --- policy upload (with analyze/vectorize progress bar) ---
   function handlePolicyUpload() {
-    const company = EVIDENCE_COMPANIES.find((c) => c.corp === policyCorp);
+    const company = tenants.find((t) => t.id === policyCorp);
     if (!company) return;
     setPolicyUploading(true);
     setPolicyProgress(8);
@@ -168,7 +173,7 @@ export default function MaterialsPage() {
         policyFile?.name ?? `社内規定_${company.name}_v1.0.pdf`;
       const newPolicy: RegisteredPolicy = {
         id: `rp-${Date.now()}`,
-        corp: company.corp,
+        corp: company.id,
         company: company.name,
         file_name: fileName,
         uploaded_at: nowDateSlash(),
@@ -189,59 +194,9 @@ export default function MaterialsPage() {
     setPolicies((prev) => prev.filter((p) => p.id !== id));
   }
 
-  return (
-    <div className="min-h-screen">
-      {/* Top bar */}
-      <header className="flex h-16 items-center gap-3 border-b bg-card px-6">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <FolderOpen className="size-5" />
-        </div>
-        <div>
-          <h1 className="font-heading text-base font-semibold">
-            参考資料管理（AI学習用）
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            管理者向け / コンサル受領資料・社内規定の登録・管理
-          </p>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        {/* Consultant guide */}
-        <Card className="mb-6 border-amber-300/60 bg-amber-50/50 dark:border-amber-800/50 dark:bg-amber-950/20">
-          <CardContent className="flex items-start gap-3 py-4">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300">
-              <Lightbulb className="size-4" />
-            </span>
-            <p className="text-sm leading-relaxed text-foreground/90">
-              <span className="font-semibold">💡 コンサルタント向けガイド：</span>
-              ここで登録・解析された社内規定は、左メニューの「スライド生成」画面の
-              「社内規定PDFの学習」エリアからワンクリックで呼び出し、一般論（IPA基準）と
-              融合させたオーダーメイド教材の自動生成に利用できます。
-            </p>
-          </CardContent>
-        </Card>
-
-        <Tabs defaultValue="general">
-          <TabsList>
-            <TabsTrigger value="general" className="gap-1.5">
-              <FolderOpen className="size-3.5" />
-              一般参考資料
-              <Badge variant="muted" className="ml-1">
-                {materials.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="policy" className="gap-1.5">
-              <ShieldCheck className="size-3.5" />
-              社内規定（ローカルルール）
-              <Badge variant="muted" className="ml-1">
-                {policies.length}
-              </Badge>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* ---------------- 一般参考資料 ---------------- */}
-          <TabsContent value="general" className="mt-6 flex flex-col gap-6">
+  // ---------------- 一般参考資料（OEMのナレッジベース。テナントには非表示） ----------------
+  const generalSection = (
+          <div className="flex flex-col gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -369,10 +324,12 @@ export default function MaterialsPage() {
                 </Table>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+  );
 
-          {/* ---------------- 社内規定（ローカルルール） ---------------- */}
-          <TabsContent value="policy" className="mt-6 flex flex-col gap-6">
+  // ---------------- 社内規定（ローカルルール） ----------------
+  const policySection = (
+          <div className="flex flex-col gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -380,12 +337,14 @@ export default function MaterialsPage() {
                   社内規定PDFの登録
                 </CardTitle>
                 <CardDescription>
-                  顧客企業から受領した社内規定PDFを企業に紐付けて登録すると、AIが条文を
-                  解析・ベクトル化し、スライド生成時の「ローカルルール」として優先適用できます。
+                  {isOem
+                    ? "顧客企業から受領した社内規定PDFを企業に紐付けて登録すると、AIが条文を解析・ベクトル化し、教材生成時の「ローカルルール」として優先適用できます。"
+                    : "自社の社内規定PDFを登録すると、AIが条文を解析・ベクトル化し、教材生成時の「ローカルルール」として優先適用します。"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
-                {/* Company select */}
+                {/* Company select (OEM only; tenant uploads bind to own company) */}
+                {isOem && (
                 <div>
                   <label
                     htmlFor="policy-corp"
@@ -396,18 +355,19 @@ export default function MaterialsPage() {
                   </label>
                   <select
                     id="policy-corp"
-                    value={policyCorp}
-                    onChange={(e) => setPolicyCorp(e.target.value)}
+                    value={selectedCorp}
+                    onChange={(e) => setSelectedCorp(e.target.value)}
                     disabled={policyUploading}
                     className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:max-w-sm dark:bg-input/30"
                   >
-                    {EVIDENCE_COMPANIES.map((c) => (
-                      <option key={c.corp} value={c.corp}>
-                        {c.name}
+                    {tenants.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
                       </option>
                     ))}
                   </select>
                 </div>
+                )}
 
                 {/* Drag & drop area */}
                 <label
@@ -507,18 +467,20 @@ export default function MaterialsPage() {
                   <ShieldCheck className="size-4 text-muted-foreground" />
                   登録済み社内規定
                   <Badge variant="muted" className="ml-1">
-                    {policies.length} 件
+                    {visiblePolicies.length} 件
                   </Badge>
                 </CardTitle>
                 <CardDescription>
-                  企業ごとに登録された社内規定です。「詳細確認」でAIが抽出したルールを確認できます。
+                  {isOem
+                    ? "企業ごとに登録された社内規定です。「詳細確認」でAIが抽出したルールを確認できます。"
+                    : "登録済みの自社規定です。「詳細確認」でAIが抽出したルールを確認できます。"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>対象企業</TableHead>
+                      {isOem && <TableHead>対象企業</TableHead>}
                       <TableHead>ファイル名</TableHead>
                       <TableHead>アップロード日時</TableHead>
                       <TableHead>AI学習ステータス</TableHead>
@@ -526,14 +488,16 @@ export default function MaterialsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {policies.map((p) => (
+                    {visiblePolicies.map((p) => (
                       <TableRow key={p.id}>
-                        <TableCell className="font-medium">
-                          <span className="flex items-center gap-2">
-                            <Building2 className="size-4 shrink-0 text-muted-foreground" />
-                            {p.company}
-                          </span>
-                        </TableCell>
+                        {isOem && (
+                          <TableCell className="font-medium">
+                            <span className="flex items-center gap-2">
+                              <Building2 className="size-4 shrink-0 text-muted-foreground" />
+                              {p.company}
+                            </span>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <span className="flex items-center gap-2 text-muted-foreground">
                             <FileText className="size-4 shrink-0 text-rose-500" />
@@ -573,10 +537,10 @@ export default function MaterialsPage() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {policies.length === 0 && (
+                    {visiblePolicies.length === 0 && (
                       <TableRow>
                         <TableCell
-                          colSpan={5}
+                          colSpan={isOem ? 5 : 4}
                           className="py-8 text-center text-muted-foreground"
                         >
                           登録済みの社内規定がありません。上のエリアからPDFをアップロードしてください。
@@ -587,8 +551,83 @@ export default function MaterialsPage() {
                 </Table>
               </CardContent>
             </Card>
+          </div>
+  );
+
+  return (
+    <div className="min-h-screen">
+      {/* Top bar */}
+      <header className="flex h-16 items-center gap-3 border-b bg-card px-6">
+        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <FolderOpen className="size-5" />
+        </div>
+        <div>
+          <h1 className="font-heading text-base font-semibold">
+            {isOem ? "ナレッジ・規定管理（AI学習用）" : "社内規定"}
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            {isOem
+              ? "監修ナレッジ・各社の社内規定の登録・管理"
+              : `${ws.tenant.name} の社内規定（ローカルルール）の登録・管理`}
+          </p>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-5xl px-6 py-8">
+        {/* Consultant guide */}
+        <Card className="mb-6 border-amber-300/60 bg-amber-50/50 dark:border-amber-800/50 dark:bg-amber-950/20">
+          <CardContent className="flex items-start gap-3 py-4">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300">
+              <Lightbulb className="size-4" />
+            </span>
+            <p className="text-sm leading-relaxed text-foreground/90">
+              {isOem ? (
+                <>
+                  <span className="font-semibold">💡 コンサルタント向けガイド：</span>
+                  ここで登録・解析された社内規定は、左メニューの「教材スタジオ」画面の
+                  「社内規定PDFの学習」エリアからワンクリックで呼び出し、一般論（IPA基準）と
+                  融合させたオーダーメイド教材の自動生成に利用できます。
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold">💡 使い方：</span>
+                  ここに登録した自社の社内規定は、「教材をつくる」で教材を生成する際に自動で適用され、
+                  一般論（IPA基準）より優先して自社ルールが教材に反映されます。
+                </>
+              )}
+            </p>
+          </CardContent>
+        </Card>
+
+        {isOem ? (
+        <Tabs defaultValue="general">
+          <TabsList>
+            <TabsTrigger value="general" className="gap-1.5">
+              <FolderOpen className="size-3.5" />
+              一般参考資料
+              <Badge variant="muted" className="ml-1">
+                {materials.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="policy" className="gap-1.5">
+              <ShieldCheck className="size-3.5" />
+              社内規定（ローカルルール）
+              <Badge variant="muted" className="ml-1">
+                {visiblePolicies.length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="general" className="mt-6">
+            {generalSection}
+          </TabsContent>
+          <TabsContent value="policy" className="mt-6">
+            {policySection}
           </TabsContent>
         </Tabs>
+        ) : (
+          policySection
+        )}
       </div>
 
       {/* 抽出ルール詳細ダイアログ */}
@@ -623,7 +662,7 @@ export default function MaterialsPage() {
             <Link href="/admin/generate" className="w-full sm:w-auto">
               <Button className="w-full gap-2">
                 <Sparkles className="size-4" />
-                この規定でスライド生成
+                この規定で教材を生成
               </Button>
             </Link>
           </DialogFooter>

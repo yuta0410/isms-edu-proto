@@ -15,6 +15,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { getEvidenceReport, MATERIAL_REVISIONS } from "@/constants/evidence";
+import { resolveTenantId } from "@/lib/scope";
+import { useWorkspace } from "@/lib/workspace";
 
 function formatJpDate(d: Date): string {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
@@ -35,7 +37,10 @@ export default function EvidencePage() {
 }
 
 function EvidenceReportView() {
-  const corp = useSearchParams().get("corp");
+  const ws = useWorkspace();
+  // Tenant mode ignores ?corp= entirely and always renders the own company,
+  // so rewriting the URL can never surface another tenant's evidence.
+  const corp = resolveTenantId(ws, useSearchParams().get("corp"));
   const report = getEvidenceReport(corp);
 
   const total = report.learners.length;

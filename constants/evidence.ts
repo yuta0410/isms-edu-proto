@@ -1,3 +1,5 @@
+import { TENANT_DIRECTORY } from "@/constants/tenants";
+
 /**
  * Per-company evidence (受講証明・実施報告) seed data for the審査用 PDF export.
  *
@@ -81,8 +83,8 @@ export const EVIDENCE_REPORTS: Record<string, EvidenceReport> = {
     total_study: "約10分",
     study_verdict: "適合",
   },
-  default: {
-    corp: "default",
+  "a-corp": {
+    corp: "a-corp",
     company: "A株式会社",
     theme: "個人情報の適切な取り扱い",
     period: "2026年5月25日 〜 2026年6月5日",
@@ -126,16 +128,15 @@ export const MATERIAL_REVISIONS: MaterialRevision[] = [
 ];
 
 /** Companies offered in the dashboard's evidence-export selector. */
-export const EVIDENCE_COMPANIES = [
-  { corp: "smart-flow", name: "株式会社スマートフロー" },
-  { corp: "chiyoda", name: "千代田コンサルティング株式会社" },
-  { corp: "default", name: "A株式会社（サンプル）" },
-];
+export const EVIDENCE_COMPANIES = TENANT_DIRECTORY.map((t) => ({
+  corp: t.id,
+  name: t.name,
+}));
 
 /** Resolve a report by corp; falls back to the default dataset. */
 export function getEvidenceReport(corp: string | null | undefined): EvidenceReport {
   if (corp && EVIDENCE_REPORTS[corp]) return EVIDENCE_REPORTS[corp];
-  return EVIDENCE_REPORTS.default;
+  return EVIDENCE_REPORTS["a-corp"];
 }
 
 // ---------------------------------------------------------------------------
@@ -207,8 +208,8 @@ E&Nコンサルティング株式会社`,
 E&Nコンサルティング株式会社`,
     },
   },
-  default: {
-    corp: "default",
+  "a-corp": {
+    corp: "a-corp",
     categories: [
       { category: "標的型メール・フィッシング", incorrect_rate: 35 },
       { category: "パスワード管理", incorrect_rate: 28 },
@@ -235,5 +236,5 @@ E&Nコンサルティング株式会社`,
 /** Resolve weakness data by corp; falls back to the default dataset. */
 export function getWeakness(corp: string | null | undefined): CompanyWeakness {
   if (corp && COMPANY_WEAKNESS[corp]) return COMPANY_WEAKNESS[corp];
-  return COMPANY_WEAKNESS.default;
+  return COMPANY_WEAKNESS["a-corp"];
 }

@@ -9,6 +9,7 @@ import {
   MessageCircle,
   Hash,
   X,
+  Users,
 } from "lucide-react";
 
 import {
@@ -33,6 +34,8 @@ import {
   completionRate,
 } from "@/constants/distribution";
 import type { DistributionRecord } from "@/lib/types";
+import { scopeByTenant } from "@/lib/scope";
+import { useWorkspace } from "@/lib/workspace";
 
 interface Toast {
   id: number;
@@ -40,6 +43,10 @@ interface Toast {
 }
 
 export default function DistributionPage() {
+  const ws = useWorkspace();
+  const { isOem } = ws;
+  // Tenant mode only ever receives its own rows.
+  const rows = scopeByTenant(ws, DISTRIBUTIONS, (r) => r.corp);
   const [toasts, setToasts] = useState<Toast[]>([]);
   // Track which rows have just been reminded (brief visual confirmation).
   const [reminded, setReminded] = useState<Record<string, boolean>>({});
@@ -61,7 +68,10 @@ export default function DistributionPage() {
         : r.channels.includes("slack")
           ? "Slack/メール"
           : "LINE/メール";
-    pushToast(`未受講者 ${pending}名に${via}で再通知しました（${r.corp_name}）`);
+    pushToast(
+      `未受講者 ${pending}名に${via}で再通知しました` +
+        (isOem ? `（${r.corp_name}）` : "")
+    );
     setReminded((prev) => ({ ...prev, [r.id]: true }));
     setTimeout(
       () => setReminded((prev) => ({ ...prev, [r.id]: false })),
@@ -70,12 +80,13 @@ export default function DistributionPage() {
   }
 
   // Summary across all distributions.
-  const totalLearners = DISTRIBUTIONS.reduce((a, r) => a + r.total_count, 0);
-  const totalDone = DISTRIBUTIONS.reduce((a, r) => a + r.completed_count, 0);
+  const totalLearners = rows.reduce((a, r) => a + r.total_count, 0);
+  const totalDone = rows.reduce((a, r) => a + r.completed_count, 0);
   const overallRate = totalLearners
     ? Math.round((totalDone / totalLearners) * 100)
     : 0;
-  const companyCount = new Set(DISTRIBUTIONS.map((r) => r.corp)).size;
+  const companyCount = new Set(rows.map((r) => r.corp)).size;
+  const pendingTotal = totalLearners - totalDone;
 
   return (
     <div className="min-h-screen">
@@ -85,10 +96,12 @@ export default function DistributionPage() {
         </div>
         <div>
           <h1 className="font-heading text-base font-semibold">
-            配信・進捗管理
+            {isOem ? "全社配信状況" : "配信と進捗"}
           </h1>
           <p className="text-xs text-muted-foreground">
-            管理者向け / 企業別・グループ別の配信状況
+            {isOem
+              ? "全契約企業の配信状況・受講完了率"
+              : `${ws.tenant.name} / グループ別の配信状況`}
           </p>
         </div>
       </header>
@@ -100,17 +113,29 @@ export default function DistributionPage() {
             <CardHeader>
               <CardDescription>配信中の教材（延べ）</CardDescription>
               <CardTitle className="text-2xl">
-                {DISTRIBUTIONS.length} 件
+                {rows.length} 件
               </CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader>
-              <CardDescription>配信先企業</CardDescription>
-              <CardTitle className="flex items-center gap-2 text-2xl">
-                <Building2 className="size-5 text-muted-foreground" />
-                {companyCount} 社
-              </CardTitle>
+              {isOem ? (
+                <>
+                  <CardDescription>配信先企業</CardDescription>
+                  <CardTitle className="flex items-center gap-2 text-2xl">
+                    <Building2 className="size-5 text-muted-foreground" />
+                    {companyCount} 社
+                  </CardTitle>
+                </>
+              ) : (
+                <>
+                  <CardDescription>未受講者</CardDescription>
+                  <CardTitle className="flex items-center gap-2 text-2xl">
+                    <Users className="size-5 text-muted-foreground" />
+                    {pendingTotal} 名
+                  </CardTitle>
+                </>
+              )}
             </CardHeader>
           </Card>
           <Card>
@@ -131,15 +156,18 @@ export default function DistributionPage() {
           <CardHeader>
             <CardTitle>配信状況一覧</CardTitle>
             <CardDescription>
-              教材ごとの配信先・受講完了率を確認し、未受講者へリマインドを送信できます。
+              {isOem
+                ? "教材ごとの配信先・受講完了率を確認し、未受講者へリマインドを送信できます。"
+                : "配信した教材の受講完了率を確認し、未受講者へリマインドを送信できます。"}
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>教材名</TableHead>
-                  <TableHead>配信先企業</TableHead>
+                  {isOem && <TableHead>配信先企業</TableHead>}
                   <TableHead>対象グループ</TableHead>
                   <TableHead>配信日時</TableHead>
                   <TableHead>通知</TableHead>
@@ -148,7 +176,7 @@ export default function DistributionPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {DISTRIBUTIONS.map((r) => {
+                {rows.map((r) => {
                   const rate = completionRate(r);
                   const pending = r.total_count - r.completed_count;
                   const done = pending === 0;
@@ -157,9 +185,11 @@ export default function DistributionPage() {
                       <TableCell className="font-medium">
                         {r.course_title}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {r.corp_name}
-                      </TableCell>
+                      {isOem && (
+                        <TableCell className="text-muted-foreground">
+                          {r.corp_name}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <Badge variant="muted">{r.group}</Badge>
                       </TableCell>
@@ -231,6 +261,7 @@ export default function DistributionPage() {
                 })}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

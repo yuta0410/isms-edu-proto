@@ -80,13 +80,50 @@ export const POLICY_PROFILES: Record<string, PolicyProfile> = {
       },
     ],
   },
+  // 契約テナント（株式会社スマートフロー）の登録済み規定。テナントモードでは
+  // 教材生成時にこのプロファイルが自動適用される（キー＝テナントID）。
+  "smart-flow": {
+    id: "smart-flow",
+    file_name: "ISMS情報セキュリティ基本規程_v2.0.pdf",
+    company: "株式会社スマートフロー",
+    rules: [
+      {
+        label: "パスワード",
+        value: "8文字以上＋多要素認証（MFA）を推奨",
+        match: ["パスワード", "認証情報"],
+        highlight:
+          "🚨 当社のルール：パスワードは【8文字以上】＋【多要素認証(MFA)】を設定してください",
+      },
+      {
+        label: "標的型メール",
+        value: "不審メールは即時に情報システム部へ報告",
+        match: ["メール", "フィッシング", "誤送信"],
+        highlight:
+          "🚨 当社のルール：不審なメールは開かずに【ただちに情報システム部へ報告】してください",
+      },
+      {
+        label: "USBメモリ",
+        value: "会社支給品のみ許可（暗号化必須）",
+        match: ["USB", "外部媒体", "記録媒体", "持ち出し", "持ち込み"],
+        highlight:
+          "🚨 当社のルール：USBメモリは【会社支給品のみ許可】（暗号化必須）です",
+      },
+    ],
+  },
 };
 
-/** select 用のサンプルファイル一覧 */
-export const SAMPLE_POLICIES = [
-  { id: "d", file_name: POLICY_PROFILES.d.file_name },
-  { id: "e", file_name: POLICY_PROFILES.e.file_name },
-];
+/** テナントIDに紐づく社内規定プロファイル（未登録なら null）。 */
+export function getTenantPolicy(tenantId: string): PolicyProfile | null {
+  return POLICY_PROFILES[tenantId] ?? null;
+}
+
+/** OEMモードの select 用：サンプル規定＋各テナントの登録済み規定 */
+export const SAMPLE_POLICIES = Object.values(POLICY_PROFILES).map((p) => ({
+  id: p.id,
+  label: p.file_name.startsWith(p.company)
+    ? p.file_name
+    : `${p.company}：${p.file_name}`,
+}));
 
 // ---------------------------------------------------------------------------
 // 顧客企業ごとに「登録・学習済み」の社内規定。参考資料管理画面の

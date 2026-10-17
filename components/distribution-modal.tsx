@@ -24,8 +24,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { COMPANIES, GROUPS } from "@/constants/distribution";
+import { GROUPS } from "@/constants/distribution";
 import type { DeliveryGroup, NotifyChannel } from "@/lib/types";
+import { visibleTenants } from "@/lib/scope";
+import { useWorkspace } from "@/lib/workspace";
 
 type Phase = "config" | "sending" | "done";
 
@@ -90,9 +92,16 @@ export function DistributionModal({
   onOpenChange: (open: boolean) => void;
   courseTitle: string;
 }) {
+  const ws = useWorkspace();
+  const { isOem } = ws;
+  // Distribution targets the current workspace may choose from. In tenant mode
+  // this is only the own company, so the picker is replaced by a fixed label.
+  const companies = visibleTenants(ws).map((t) => ({ corp: t.id, name: t.name }));
+  const defaultCorps = [companies[0].corp];
+
   const [phase, setPhase] = useState<Phase>("config");
   const [step, setStep] = useState(0);
-  const [corps, setCorps] = useState<string[]>(["A"]);
+  const [corps, setCorps] = useState<string[]>(defaultCorps);
   const [group, setGroup] = useState<DeliveryGroup>("全社員");
   const [channels, setChannels] = useState<Record<NotifyChannel, boolean>>({
     line: true,
@@ -110,10 +119,15 @@ export function DistributionModal({
       setPhase("config");
       setStep(0);
       setCopied(false);
+      // Drop targets that are not visible in the current mode.
+      setCorps((prev) => {
+        const kept = prev.filter((c) => companies.some((x) => x.corp === c));
+        return kept.length > 0 ? kept : defaultCorps;
+      });
     }
   }
 
-  const primaryCorp = corps[0] ?? "A";
+  const primaryCorp = corps[0] ?? defaultCorps[0];
   // Derive the base URL from the current origin so the issued link matches the
   // running environment (localhost in dev, the Vercel URL in production). Falls
   // back to an empty string during SSR; the link is only shown after the modal
@@ -169,19 +183,29 @@ export function DistributionModal({
                 配信設定
               </DialogTitle>
               <DialogDescription>
-                教材「{courseTitle}」を配信する企業・グループと通知方法を選択します。
+                {isOem
+                  ? `教材「${courseTitle}」を配信する企業・グループと通知方法を選択します。`
+                  : `教材「${courseTitle}」を配信するグループと通知方法を選択します。`}
               </DialogDescription>
             </DialogHeader>
 
             <div className="flex flex-col gap-5">
-              {/* Companies (multi-select) */}
+              {/* Companies (multi-select, OEM only) */}
+              {!isOem ? (
+                <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                  <Building2 className="size-4 text-muted-foreground" />
+                  配信先：
+                  <span className="font-medium">{companies[0].name}</span>
+                  <Badge variant="muted">自社</Badge>
+                </div>
+              ) : (
               <div>
                 <label className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                   <Building2 className="size-3.5" />
                   配信先企業（複数選択可）
                 </label>
                 <div className="flex flex-col gap-2">
-                  {COMPANIES.map((c) => {
+                  {companies.map((c) => {
                     const active = corps.includes(c.corp);
                     return (
                       <button
@@ -210,6 +234,7 @@ export function DistributionModal({
                   })}
                 </div>
               </div>
+              )}
 
               {/* Group (single-select) */}
               <div>
@@ -264,7 +289,7 @@ export function DistributionModal({
 
             <div className="mt-1 flex items-center justify-between gap-3 border-t pt-4">
               <span className="text-xs text-muted-foreground">
-                {corps.length} 社 ・ {group}
+                {isOem ? `${corps.length} 社 ・ ${group}` : group}
               </span>
               <Button
                 onClick={handleDistribute}
@@ -363,7 +388,7 @@ export function DistributionModal({
 
             <div className="flex flex-wrap items-center justify-center gap-1.5">
               {corps.map((c) => {
-                const company = COMPANIES.find((x) => x.corp === c);
+                const company = companies.find((x) => x.corp === c);
                 return (
                   <Badge key={c} variant="muted">
                     {company?.name ?? c}
@@ -413,13 +438,13 @@ export function DistributionModal({
                 </Button>
               </div>
               <p className="mt-1.5 text-xs text-muted-foreground">
-                ※ このリンクを開くとログイン不要で「{COMPANIES.find((x) => x.corp === primaryCorp)?.name}」の専用ポータルが開きます。
+                ※ このリンクを開くとログイン不要で「{companies.find((x) => x.corp === primaryCorp)?.name}」の専用ポータルが開きます。
               </p>
             </div>
 
             <div className="flex justify-end gap-2 border-t pt-4">
               <Button variant="ghost" onClick={() => setPhase("config")}>
-                続けて他社に配信
+                {isOem ? "続けて他社に配信" : "続けて別グループに配信"}
               </Button>
               <Button onClick={() => onOpenChange(false)}>閉じる</Button>
             </div>

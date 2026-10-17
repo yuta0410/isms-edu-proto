@@ -1,3 +1,4 @@
+import { TENANT_DIRECTORY, tenantName } from "@/constants/tenants";
 import type {
   Tenant,
   DeliveryGroup,
@@ -13,11 +14,10 @@ import type {
  */
 
 /** Companies selectable as distribution targets. */
-export const COMPANIES = [
-  { corp: "A", name: "A株式会社" },
-  { corp: "B", name: "B合同会社" },
-  { corp: "C", name: "Cクリニック（医療法人）" },
-] as const;
+export const COMPANIES = TENANT_DIRECTORY.map((t) => ({
+  corp: t.id,
+  name: t.name,
+}));
 
 /** Target groups within a company. */
 export const GROUPS: DeliveryGroup[] = ["全社員", "新入社員", "管理職"];
@@ -27,36 +27,36 @@ export const GROUPS: DeliveryGroup[] = ["全社員", "新入社員", "管理職"
  * sees — this is the (pseudo) multi-tenant filtering on the learner portal.
  */
 export const TENANTS: Record<string, Tenant> = {
-  A: {
-    corp: "A",
+  "smart-flow": {
+    corp: "smart-flow",
+    name: "株式会社スマートフロー",
+    portal_label: "株式会社スマートフロー様 専用ポータル",
+    logo_label: "スマートフロー様 配信中教材",
+    accent: "violet",
+    course_ids: ["password-mfa", "phishing"],
+  },
+  chiyoda: {
+    corp: "chiyoda",
+    name: "千代田コンサルティング株式会社",
+    portal_label: "千代田コンサルティング株式会社様 専用ポータル",
+    logo_label: "千代田コンサルティング様 配信中教材",
+    accent: "emerald",
+    course_ids: ["personal-info"],
+  },
+  "a-corp": {
+    corp: "a-corp",
     name: "A株式会社",
     portal_label: "A株式会社様 専用ポータル",
     logo_label: "A社様 配信中教材",
     accent: "sky",
     course_ids: ["personal-info", "password-mfa", "phishing"],
   },
-  B: {
-    corp: "B",
-    name: "B合同会社",
-    portal_label: "B合同会社様 専用ポータル",
-    logo_label: "B社様 配信中教材",
-    accent: "violet",
-    course_ids: ["password-mfa", "phishing"],
-  },
-  C: {
-    corp: "C",
-    name: "Cクリニック（医療法人）",
-    portal_label: "Cクリニック様 専用ポータル",
-    logo_label: "Cクリニック様 配信中教材",
-    accent: "emerald",
-    course_ids: ["personal-info"],
-  },
 };
 
 /** Resolve a tenant by its `corp` code; undefined for unknown / no tenant. */
 export function getTenant(corp: string | null | undefined): Tenant | undefined {
   if (!corp) return undefined;
-  return TENANTS[corp.toUpperCase()];
+  return TENANTS[corp.toLowerCase()];
 }
 
 /** Seed rows for the distribution dashboard. */
@@ -65,8 +65,8 @@ export const DISTRIBUTIONS: DistributionRecord[] = [
     id: "d1",
     course_id: "personal-info",
     course_title: "個人情報の適切な取り扱い",
-    corp: "A",
-    corp_name: "A株式会社",
+    corp: "a-corp",
+    corp_name: tenantName("a-corp"),
     group: "全社員",
     distributed_at: "2026-05-25 09:00",
     total_count: 48,
@@ -77,8 +77,8 @@ export const DISTRIBUTIONS: DistributionRecord[] = [
     id: "d2",
     course_id: "password-mfa",
     course_title: "パスワード管理と多要素認証",
-    corp: "A",
-    corp_name: "A株式会社",
+    corp: "a-corp",
+    corp_name: tenantName("a-corp"),
     group: "新入社員",
     distributed_at: "2026-05-28 10:30",
     total_count: 12,
@@ -89,8 +89,8 @@ export const DISTRIBUTIONS: DistributionRecord[] = [
     id: "d3",
     course_id: "phishing",
     course_title: "標的型メール攻撃への対策",
-    corp: "B",
-    corp_name: "B合同会社",
+    corp: "smart-flow",
+    corp_name: tenantName("smart-flow"),
     group: "全社員",
     distributed_at: "2026-06-01 13:15",
     total_count: 30,
@@ -101,8 +101,8 @@ export const DISTRIBUTIONS: DistributionRecord[] = [
     id: "d4",
     course_id: "password-mfa",
     course_title: "パスワード管理と多要素認証",
-    corp: "B",
-    corp_name: "B合同会社",
+    corp: "smart-flow",
+    corp_name: tenantName("smart-flow"),
     group: "管理職",
     distributed_at: "2026-06-02 08:45",
     total_count: 8,
@@ -113,8 +113,8 @@ export const DISTRIBUTIONS: DistributionRecord[] = [
     id: "d5",
     course_id: "personal-info",
     course_title: "個人情報の適切な取り扱い",
-    corp: "C",
-    corp_name: "Cクリニック（医療法人）",
+    corp: "chiyoda",
+    corp_name: tenantName("chiyoda"),
     group: "全社員",
     distributed_at: "2026-06-05 17:00",
     total_count: 22,
